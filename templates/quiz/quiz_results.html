@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}Quiz Results - QuizNjoy{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg shadow-xl p-4 md:p-8 mb-4 md:mb-8 text-center">
+        {% load static %}
+        <img src="{% static 'images/logo.png' %}" alt="QuizNJoy Logo" class="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4">
+        <h1 class="text-2xl md:text-4xl font-bold mb-4">Quiz Completed!</h1>
+        <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 md:space-x-12 mt-6 md:mt-8">
+            <div>
+                <p class="text-sm md:text-lg opacity-90 mb-2">Your Score</p>
+                <p class="text-4xl md:text-6xl font-bold">{{ score }}/{{ total }}</p>
+            </div>
+            <div>
+                <p class="text-sm md:text-lg opacity-90 mb-2">Percentage</p>
+                <p class="text-4xl md:text-6xl font-bold">{% widthratio score total 100 %}%</p>
+            </div>
+        </div>
+        
+        {% widthratio score total 100 as percentage %}
+        <div class="mt-4 md:mt-6">
+            {% if percentage >= 80 %}
+                <p class="text-lg md:text-2xl">🎉 Excellent! Keep it up!</p>
+            {% elif percentage >= 60 %}
+                <p class="text-lg md:text-2xl">👍 Good job! You can do better!</p>
+            {% else %}
+                <p class="text-lg md:text-2xl">💪 Keep practicing! You'll improve!</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-xl p-4 md:p-8 mb-4 md:mb-8">
+        <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-4 md:mb-6">Answer Review</h2>
+        
+        <div class="space-y-4 md:space-y-6">
+            {% for result in results %}
+                <div class="border-2 {% if result.is_correct %}border-green-300 bg-green-50{% else %}border-red-300 bg-red-50{% endif %} rounded-lg p-4 md:p-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <span class="{% if result.is_correct %}bg-green-600{% else %}bg-red-600{% endif %} text-white px-3 py-1 rounded-full text-sm font-semibold">
+                                Question {{ forloop.counter }}
+                            </span>
+                        </div>
+                        <div>
+                            {% if result.is_correct %}
+                                <span class="flex items-center text-green-700 font-semibold">
+                                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Correct
+                                </span>
+                            {% else %}
+                                <span class="flex items-center text-red-700 font-semibold">
+                                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Incorrect
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="text-base md:text-lg text-gray-800 mb-4">
+                        <pre class="whitespace-pre-wrap font-sans text-sm md:text-base">{{ result.question.question_text }}</pre>
+                        {% if result.question.question_image %}
+                            <div class="mt-3">
+                                <img src="{{ result.question.question_image.url }}" alt="Question Image" class="w-full max-w-full h-auto rounded-lg border-2 border-gray-300 shadow-md">
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {% if not result.is_correct %}
+                            <div class="p-3 bg-red-100 border-2 border-red-300 rounded-lg">
+                                <p class="text-sm text-red-700 font-semibold mb-1">Your Answer:</p>
+                                <div class="text-gray-800">
+                                    <span class="font-bold">{{ result.selected }}.</span>
+                                    <pre class="whitespace-pre-wrap font-sans inline">{% if result.selected == 'A' %}{{ result.question.option_a }}{% elif result.selected == 'B' %}{{ result.question.option_b }}{% elif result.selected == 'C' %}{{ result.question.option_c }}{% elif result.selected == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="p-3 bg-green-100 border-2 border-green-300 rounded-lg">
+                            <p class="text-sm text-green-700 font-semibold mb-1">Correct Answer:</p>
+                            <div class="text-gray-800">
+                                <span class="font-bold">{{ result.correct }}.</span>
+                                <pre class="whitespace-pre-wrap font-sans inline">{% if result.correct == 'A' %}{{ result.question.option_a }}{% elif result.correct == 'B' %}{{ result.question.option_b }}{% elif result.correct == 'C' %}{{ result.question.option_c }}{% elif result.correct == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="text-center space-y-3 md:space-y-0 md:space-x-4 flex flex-col md:flex-row justify-center items-stretch md:items-center">
+        {% if quiz_mode == 'practice_all' and subject_id and unit %}
+            <a href="{% url 'quiz:take_quiz' subject_id unit %}?mode=practice_all" class="inline-block bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+                Continue Practice All
+            </a>
+        {% endif %}
+        <a href="{% url 'quiz:select_semester' %}" class="inline-block bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+            Take Another Quiz
+        </a>
+        <a href="{% url 'accounts:profile' %}" class="inline-block bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+            View Profile
+        </a>
+    </div>
+</div>
+{% endblock %}
+
