@@ -33,6 +33,9 @@ urlpatterns = [
     path('semesters/', include('semesters.urls')),
 ]
 
+# Serve static and media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+# In production, configure web server (nginx/apache) to serve static files
+# For PythonAnywhere, set up static files mapping in Web app settings

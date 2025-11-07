@@ -30,7 +30,7 @@ local_settings.py
 db.sqlite3-journal
 /media
 /staticfiles
-/static
+# /static  # Commented out - static folder is included in repository
 
 # Environment variables
 .env

@@ -34,10 +34,13 @@ if ON_PYTHONANYWHERE:
     ALLOWED_HOSTS = [
         f'{PA_USERNAME}.pythonanywhere.com',
         f'www.{PA_USERNAME}.pythonanywhere.com',
+        '127.0.0.1',
+        'localhost',
     ]
 else:
     DEBUG = True
-    ALLOWED_HOSTS = ['*']  # Allow access from any device on network
+    # Allow access from any device on network (for development)
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -130,12 +133,18 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Ensure static files are found
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 
 LOGIN_REDIRECT_URL = 'quiz:select_semester'
 LOGOUT_REDIRECT_URL = 'accounts:login'
