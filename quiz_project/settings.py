@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,10 +23,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-li9k@npv_7i#mmm^5yq!wr+r8#)sy&j*@_j^he9$f2#%694si9'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Detect if running on PythonAnywhere
+ON_PYTHONANYWHERE = 'PYTHONANYWHERE_DOMAIN' in os.environ
 
-ALLOWED_HOSTS = ['*']  # Allow access from any device on network
+# SECURITY WARNING: don't run with debug turned on in production!
+if ON_PYTHONANYWHERE:
+    DEBUG = False
+    # Get your PythonAnywhere username from environment
+    PA_USERNAME = os.environ.get('USER', 'yourusername')
+    ALLOWED_HOSTS = [
+        f'{PA_USERNAME}.pythonanywhere.com',
+        f'www.{PA_USERNAME}.pythonanywhere.com',
+    ]
+else:
+    DEBUG = True
+    ALLOWED_HOSTS = ['*']  # Allow access from any device on network
 
 
 # Application definition

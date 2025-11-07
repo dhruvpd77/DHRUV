@@ -90,11 +90,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Excel files (if you don't want to track uploaded files)
+# Excel files (test files - don't track)
 *.xlsx
 *.xls
 *.csv
 !requirements.txt
+# But keep db.sqlite3 for deployment
 
 # Temporary files
 *.tmp
