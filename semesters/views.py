@@ -7,6 +7,7 @@ import pandas as pd
 import openpyxl
 from io import BytesIO
 import os
+import csv
 from PIL import Image
 
 @staff_member_required
@@ -199,51 +200,108 @@ def upload_questions(request):
             
             # If pandas failed, try reading cell-by-cell with openpyxl directly (LAST RESORT)
             if df is None:
-                try:
-                    messages.warning(request, 'File has severe XML corruption. Attempting direct cell-by-cell reading...')
-                    
-                    # Try to open with read_only mode (more forgiving)
-                    wb_readonly = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-                    ws_readonly = wb_readonly.active
-                    
-                    # Read data manually row by row
-                    data_rows = []
-                    headers = None
-                    
-                    for idx, row in enumerate(ws_readonly.iter_rows(values_only=True)):
-                        if idx == 0:
-                            # First row is headers
-                            headers = [str(cell) if cell is not None else '' for cell in row]
-                        else:
-                            # Data rows
-                            row_data = [str(cell) if cell is not None else '' for cell in row]
-                            if any(row_data):  # Skip completely empty rows
-                                data_rows.append(row_data)
-                    
-                    # Create DataFrame from manually read data
-                    if headers and data_rows:
-                        df = pd.DataFrame(data_rows, columns=headers)
-                        messages.success(request, f'Successfully read {len(df)} rows using cell-by-cell method!')
-                    
-                    wb_readonly.close()
+                # Try multiple openpyxl strategies
+                openpyxl_strategies = [
+                    # Strategy 1: read_only mode (most forgiving)
+                    {'read_only': True, 'data_only': True, 'keep_vba': False},
+                    # Strategy 2: read_only without data_only
+                    {'read_only': True, 'data_only': False, 'keep_vba': False},
+                    # Strategy 3: Normal mode with repair
+                    {'read_only': False, 'data_only': True, 'keep_vba': False},
+                    # Strategy 4: Normal mode without data_only
+                    {'read_only': False, 'data_only': False, 'keep_vba': False},
+                ]
                 
-                except Exception as cell_error:
-                    # Even cell-by-cell reading failed
-                    pass
+                for strategy_idx, strategy in enumerate(openpyxl_strategies):
+                    try:
+                        if strategy_idx == 0:
+                            messages.warning(request, 'File has severe XML corruption. Attempting direct cell-by-cell reading...')
+                        
+                        # Try to open with current strategy
+                        wb_readonly = openpyxl.load_workbook(file_path, **strategy)
+                        ws_readonly = wb_readonly.active
+                        
+                        # Read data manually row by row
+                        data_rows = []
+                        headers = None
+                        max_rows = 10000  # Safety limit
+                        
+                        for idx, row in enumerate(ws_readonly.iter_rows(values_only=True)):
+                            if idx >= max_rows:
+                                break
+                            
+                            if idx == 0:
+                                # First row is headers
+                                headers = [str(cell) if cell is not None else '' for cell in row]
+                            else:
+                                # Data rows
+                                row_data = [str(cell) if cell is not None else '' for cell in row]
+                                if any(row_data):  # Skip completely empty rows
+                                    data_rows.append(row_data)
+                        
+                        # Create DataFrame from manually read data
+                        if headers and data_rows:
+                            df = pd.DataFrame(data_rows, columns=headers)
+                            messages.success(request, f'Successfully read {len(df)} rows using cell-by-cell method (strategy {strategy_idx + 1})!')
+                            wb_readonly.close()
+                            break  # Success! Exit loop
+                        
+                        wb_readonly.close()
+                    
+                    except Exception as cell_error:
+                        # Try next strategy
+                        continue
+                
+                # If all openpyxl strategies failed, try CSV conversion as absolute last resort
+                if df is None:
+                    try:
+                        messages.warning(request, 'All Excel reading methods failed. Attempting CSV conversion workaround...')
+                        
+                        # Try to read as CSV (if file can be opened as text)
+                        csv_data = []
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            # Try to detect if it's actually a CSV or TSV
+                            sample = f.read(1024)
+                            f.seek(0)
+                            
+                            # Try comma-separated first
+                            try:
+                                reader = csv.reader(f)
+                                for row in reader:
+                                    if row:  # Skip empty rows
+                                        csv_data.append(row)
+                                if len(csv_data) > 1:  # At least header + 1 row
+                                    headers = [str(h) for h in csv_data[0]]
+                                    data_rows = [row for row in csv_data[1:] if any(row)]
+                                    if headers and data_rows:
+                                        df = pd.DataFrame(data_rows, columns=headers)
+                                        messages.success(request, f'Successfully read {len(df)} rows using CSV fallback method!')
+                            except:
+                                pass
+                    except Exception as csv_error:
+                        pass
             
-            # If still no data, provide helpful error message
+            # If still no data, provide helpful error message with actionable steps
             if df is None:
+                # Create a more user-friendly error message
                 error_msg = (
-                    f"Cannot read Excel file due to severe XML corruption. "
-                    f"Please fix the file first:\n\n"
-                    f"QUICK FIX:\n"
-                    f"1. Open file in Excel\n"
-                    f"2. Select all data (Ctrl+A) and Copy (Ctrl+C)\n"
-                    f"3. Create NEW blank Excel workbook\n"
-                    f"4. Paste (Ctrl+V)\n"
-                    f"5. Save as new .xlsx file\n"
-                    f"6. Upload the new file\n\n"
-                    f"OR run: python fix_excel_file.py \"your_file.xlsx\""
+                    "❌ Cannot read Excel file due to severe XML corruption.\n\n"
+                    "🔧 QUICK FIX (Recommended - Takes 2 minutes):\n"
+                    "1. Open the corrupted file in Microsoft Excel\n"
+                    "2. Press Ctrl+A to select all data\n"
+                    "3. Press Ctrl+C to copy\n"
+                    "4. Close the corrupted file\n"
+                    "5. Create a NEW blank Excel workbook\n"
+                    "6. Press Ctrl+V to paste\n"
+                    "7. Save as new .xlsx file (e.g., 'Fixed_File.xlsx')\n"
+                    "8. Upload the new file\n\n"
+                    "💡 Alternative: Save as CSV first, then convert back to Excel\n"
+                    "1. Open in Excel → File → Save As → CSV (Comma delimited)\n"
+                    "2. Close and reopen the CSV file\n"
+                    "3. Save As → Excel Workbook (.xlsx)\n"
+                    "4. Upload the new file\n\n"
+                    "🛠️ Or run fix script: python fix_corrupted_excel.py \"your_file.xlsx\"\n\n"
+                    "⚠️ The file structure is too corrupted for automatic repair."
                 )
                 raise Exception(error_msg)
             
