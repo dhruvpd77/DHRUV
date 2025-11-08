@@ -36,10 +36,10 @@
         
         <div class="space-y-4 md:space-y-6">
             {% for result in results %}
-                <div class="border-2 {% if result.is_correct %}border-green-300 bg-green-50{% else %}border-red-300 bg-red-50{% endif %} rounded-lg p-4 md:p-6">
+                <div class="border-2 {% if result.is_correct %}border-green-300 bg-green-50{% elif result.attempted %}border-red-300 bg-red-50{% else %}border-yellow-300 bg-yellow-50{% endif %} rounded-lg p-4 md:p-6">
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
-                            <span class="{% if result.is_correct %}bg-green-600{% else %}bg-red-600{% endif %} text-white px-3 py-1 rounded-full text-sm font-semibold">
+                            <span class="{% if result.is_correct %}bg-green-600{% elif result.attempted %}bg-red-600{% else %}bg-yellow-600{% endif %} text-white px-3 py-1 rounded-full text-sm font-semibold">
                                 Question {{ forloop.counter }}
                             </span>
                         </div>
@@ -51,12 +51,19 @@
                                     </svg>
                                     Correct
                                 </span>
-                            {% else %}
+                            {% elif result.attempted %}
                                 <span class="flex items-center text-red-700 font-semibold">
                                     <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                                     </svg>
                                     Incorrect
+                                </span>
+                            {% else %}
+                                <span class="flex items-center text-yellow-700 font-semibold">
+                                    <svg class="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Not Attempted
                                 </span>
                             {% endif %}
                         </div>
@@ -72,12 +79,19 @@
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {% if not result.is_correct %}
+                        {% if result.attempted and not result.is_correct %}
                             <div class="p-3 bg-red-100 border-2 border-red-300 rounded-lg">
                                 <p class="text-sm text-red-700 font-semibold mb-1">Your Answer:</p>
                                 <div class="text-gray-800">
                                     <span class="font-bold">{{ result.selected }}.</span>
                                     <pre class="whitespace-pre-wrap font-sans inline">{% if result.selected == 'A' %}{{ result.question.option_a }}{% elif result.selected == 'B' %}{{ result.question.option_b }}{% elif result.selected == 'C' %}{{ result.question.option_c }}{% elif result.selected == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                                </div>
+                            </div>
+                        {% elif not result.attempted %}
+                            <div class="p-3 bg-yellow-100 border-2 border-yellow-300 rounded-lg">
+                                <p class="text-sm text-yellow-700 font-semibold mb-1">Your Answer:</p>
+                                <div class="text-gray-800 italic">
+                                    Not Attempted
                                 </div>
                             </div>
                         {% endif %}

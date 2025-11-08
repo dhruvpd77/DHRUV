@@ -117,7 +117,9 @@ def submit_quiz(request):
         return redirect('quiz:select_semester')
     
     subject = get_object_or_404(Subject, id=subject_id)
-    questions = Question.objects.filter(id__in=question_ids)
+    # Get questions and preserve order
+    questions_dict = {q.id: q for q in Question.objects.filter(id__in=question_ids)}
+    questions = [questions_dict[qid] for qid in question_ids if qid in questions_dict]
     
     # Calculate score
     score = 0
@@ -161,7 +163,17 @@ def submit_quiz(request):
                 'question': question,
                 'selected': selected,
                 'correct': question.correct_answer,
-                'is_correct': is_correct
+                'is_correct': is_correct,
+                'attempted': True
+            })
+        else:
+            # Question not attempted - still show it in results
+            results.append({
+                'question': question,
+                'selected': None,
+                'correct': question.correct_answer,
+                'is_correct': False,
+                'attempted': False
             })
     
     quiz_attempt.score = score

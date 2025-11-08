@@ -14,7 +14,7 @@
             <div class="mt-4 md:mt-0">
                 <div id="timer-container" class="bg-red-600 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center">
                     <div class="text-xs md:text-sm opacity-90 mb-1">Time Remaining</div>
-                    <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
+                    <div id="timer" class="text-xl md:text-3xl font-bold">01:00</div>
                 </div>
             </div>
             {% endif %}
@@ -91,7 +91,7 @@
 {% if quiz_mode == 'random' %}
 <script>
     // Timer functionality for random mode only
-    let timeRemaining = 600; // 10 minutes in seconds
+    let timeRemaining = 60; // 1 minute in seconds
     let timeElapsed = 0;
     const timerElement = document.getElementById('timer');
     const timerContainer = document.getElementById('timer-container');
@@ -116,11 +116,11 @@
         timerElement.textContent = formattedTime;
         
         // Change color when time is running low
-        if (timeRemaining <= 60) {
+        if (timeRemaining <= 10) {
             timerContainer.classList.remove('bg-red-600', 'bg-orange-600');
             timerContainer.classList.add('bg-red-800');
             timerElement.classList.add('animate-pulse');
-        } else if (timeRemaining <= 180) {
+        } else if (timeRemaining <= 30) {
             timerContainer.classList.remove('bg-red-600', 'bg-red-800');
             timerContainer.classList.add('bg-orange-600');
             timerElement.classList.remove('animate-pulse');
