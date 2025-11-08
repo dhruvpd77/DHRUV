@@ -21,7 +21,17 @@
     
     <div class="grid md:grid-cols-2 gap-4 md:gap-8">
         <!-- Random Mode -->
-        <a href="{% url 'quiz:take_quiz' subject.id unit %}?mode=random" class="group block">
+        <div class="group block">
+            {% if continue_quiz %}
+            <div class="mb-4 p-4 bg-yellow-50 border-2 border-yellow-400 rounded-lg">
+                <p class="text-sm md:text-base font-semibold text-yellow-800 mb-2">⏱️ Quiz in Progress!</p>
+                <p class="text-xs md:text-sm text-yellow-700 mb-3">Time Remaining: {{ continue_quiz.remaining_minutes }}:{{ continue_quiz.remaining_seconds|stringformat:"02d" }}</p>
+                <a href="{% url 'quiz:take_quiz' subject.id unit %}?mode=random&continue=true" class="inline-block w-full bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 text-center text-sm md:text-base">
+                    Continue Quiz →
+                </a>
+            </div>
+            {% endif %}
+            <a href="{% url 'quiz:take_quiz' subject.id unit %}?mode=random" class="block">
             <div class="bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 p-4 md:p-8 text-white h-full">
                 <div class="text-center mb-4 md:mb-6">
                     <div class="bg-white bg-opacity-30 backdrop-blur-sm w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 group-hover:bg-opacity-40 transition-all duration-300 shadow-xl">
@@ -56,11 +66,12 @@
                 
                 <div class="mt-6 md:mt-8 text-center">
                     <span class="bg-white bg-opacity-30 px-4 md:px-6 py-2 md:py-3 rounded-full font-semibold inline-block group-hover:bg-opacity-40 transition-all duration-300 text-sm md:text-base">
-                        Start Random Quiz →
+                        {% if continue_quiz %}Start New Quiz →{% else %}Start Random Quiz →{% endif %}
                     </span>
                 </div>
             </div>
-        </a>
+            </a>
+        </div>
         
         <!-- Practice All Mode -->
         <a href="{% url 'quiz:take_quiz' subject.id unit %}?mode=practice_all" class="group block">

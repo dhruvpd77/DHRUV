@@ -4,6 +4,7 @@ from django.contrib import messages
 from semesters.models import Semester, Subject, Question
 from .models import QuizAttempt, QuizAnswer
 import random
+import time
 
 @login_required
 def select_semester(request):
@@ -47,10 +48,30 @@ def select_quiz_mode(request, subject_id, unit):
     subject = get_object_or_404(Subject, id=subject_id)
     total_questions = Question.objects.filter(subject=subject, unit=unit).count()
     
+    # Check for active random mode quiz session
+    continue_quiz = None
+    session_key = f'random_quiz_{subject_id}_{unit}'
+    if session_key in request.session:
+        quiz_data = request.session[session_key]
+        start_time = quiz_data.get('start_time')
+        if start_time:
+            elapsed_time = time.time() - start_time
+            remaining_time = 600 - elapsed_time  # 10 minutes = 600 seconds
+            if remaining_time > 0:
+                continue_quiz = {
+                    'remaining_time': int(remaining_time),
+                    'remaining_minutes': int(remaining_time // 60),
+                    'remaining_seconds': int(remaining_time % 60)
+                }
+            else:
+                # Time expired, clear the session
+                del request.session[session_key]
+    
     return render(request, 'quiz/select_mode.html', {
         'subject': subject,
         'unit': unit,
-        'total_questions': total_questions
+        'total_questions': total_questions,
+        'continue_quiz': continue_quiz
     })
 
 @login_required
@@ -95,12 +116,39 @@ def take_quiz(request, subject_id, unit):
         else:
             messages.success(request, 'You have completed all questions in this unit!')
     else:
-        # Random Mode: Just pick 10 random questions (can repeat)
-        if len(all_questions) < 10:
-            messages.warning(request, f'Only {len(all_questions)} questions available for this unit.')
-            quiz_questions = all_questions
+        # Random Mode: Check if continuing an existing quiz
+        session_key = f'random_quiz_{subject_id}_{unit}'
+        continue_quiz = request.GET.get('continue', 'false') == 'true'
+        
+        if continue_quiz and session_key in request.session:
+            # Continue existing quiz - use stored questions
+            stored_question_ids = request.session.get('quiz_questions', [])
+            quiz_questions = [q for q in all_questions if q.id in stored_question_ids]
+            # Preserve order
+            quiz_questions = sorted(quiz_questions, key=lambda q: stored_question_ids.index(q.id))
+            
+            # Calculate remaining time
+            quiz_data = request.session[session_key]
+            start_time = quiz_data.get('start_time')
+            if start_time:
+                elapsed_time = time.time() - start_time
+                remaining_time = 600 - elapsed_time
+                if remaining_time <= 0:
+                    # Time expired, start new quiz
+                    messages.warning(request, 'Time expired. Starting a new quiz.')
+                    continue_quiz = False
         else:
-            quiz_questions = random.sample(all_questions, 10)
+            # Start new quiz
+            if len(all_questions) < 10:
+                messages.warning(request, f'Only {len(all_questions)} questions available for this unit.')
+                quiz_questions = all_questions
+            else:
+                quiz_questions = random.sample(all_questions, 10)
+            
+            # Store quiz start time for random mode
+            request.session[session_key] = {
+                'start_time': time.time()
+            }
     
     # Store question IDs in session
     request.session['quiz_questions'] = [q.id for q in quiz_questions]
@@ -108,11 +156,23 @@ def take_quiz(request, subject_id, unit):
     request.session['unit'] = unit
     request.session['quiz_mode'] = quiz_mode
     
+    # Calculate remaining time for template
+    remaining_time = None
+    if quiz_mode == 'random':
+        session_key = f'random_quiz_{subject_id}_{unit}'
+        if session_key in request.session:
+            quiz_data = request.session[session_key]
+            start_time = quiz_data.get('start_time')
+            if start_time:
+                elapsed_time = time.time() - start_time
+                remaining_time = max(0, int(600 - elapsed_time))
+    
     return render(request, 'quiz/take_quiz.html', {
         'subject': subject,
         'unit': unit,
         'questions': quiz_questions,
-        'quiz_mode': quiz_mode
+        'quiz_mode': quiz_mode,
+        'remaining_time': remaining_time
     })
 
 @login_required
@@ -196,8 +256,13 @@ def submit_quiz(request):
     subject_id = request.session.get('subject_id')
     unit = request.session.get('unit')
     
-    # Clear quiz question session but keep mode and subject/unit for continue
+    # Clear quiz question session and random quiz session
     del request.session['quiz_questions']
+    # Clear random quiz session if it exists
+    if subject_id and unit:
+        session_key = f'random_quiz_{subject_id}_{unit}'
+        if session_key in request.session:
+            del request.session[session_key]
     
     return render(request, 'quiz/quiz_results.html', {
         'score': score,

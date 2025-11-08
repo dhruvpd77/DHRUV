@@ -91,13 +91,21 @@
 {% if quiz_mode == 'random' %}
 <script>
     // Timer functionality for random mode only
-    let timeRemaining = 600; // 10 minutes in seconds
-    let timeElapsed = 0;
+    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}600{% endif %}; // Use remaining time if continuing, otherwise 10 minutes
+    let timeElapsed = {% if remaining_time %}600 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
     const timerElement = document.getElementById('timer');
     const timerContainer = document.getElementById('timer-container');
     const quizForm = document.getElementById('quiz-form');
     const timeTakenInput = document.getElementById('time_taken');
     let timerInterval;
+
+    // Initialize timer display
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    timerElement.textContent = formatTime(timeRemaining);
 
     function updateTimer() {
         if (timeRemaining <= 0) {
