@@ -20,6 +20,18 @@ def select_subject(request, semester_id):
     })
 
 @login_required
+def disclaimer(request, subject_id):
+    """Show disclaimer before starting quiz"""
+    subject = get_object_or_404(Subject, id=subject_id)
+    return render(request, 'quiz/disclaimer.html', {
+        'subject': subject
+    })
+
+def about_us(request):
+    """About Us page with creator information"""
+    return render(request, 'quiz/about_us.html')
+
+@login_required
 def select_unit(request, subject_id):
     subject = get_object_or_404(Subject, id=subject_id)
     # Get distinct units for this subject

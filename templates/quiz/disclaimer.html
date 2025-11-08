@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Disclaimer - QuizNjoy{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8 md:py-12">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-10 border-l-4 border-yellow-500">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-100 rounded-full mb-4">
+                <svg class="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">Important Disclaimer</h1>
+            <p class="text-lg text-gray-600">Please read carefully before proceeding</p>
+        </div>
+
+        <!-- Disclaimer Content -->
+        <div class="space-y-6 mb-8">
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-yellow-600 mr-3 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <h3 class="text-lg font-semibold text-yellow-800 mb-2">For Practice Purposes Only</h3>
+                        <p class="text-gray-700 leading-relaxed">
+                            This quiz platform is designed <strong>exclusively for educational and practice purposes</strong>. 
+                            The questions and answers provided are intended to help you enhance your knowledge and understanding 
+                            of the subject matter through interactive practice sessions.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-blue-600 mr-3 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <h3 class="text-lg font-semibold text-blue-800 mb-2">No Guarantee of Accuracy</h3>
+                        <p class="text-gray-700 leading-relaxed">
+                            While we strive to provide accurate and up-to-date content, <strong>we do not guarantee 100% accuracy</strong> 
+                            of all questions and answers. Some answers may be incorrect, incomplete, or subject to interpretation. 
+                            Always verify critical information from authoritative sources.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-green-600 mr-3 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10.394 2.08a1 1 0 00-.788 0l-7 3a1 1 0 000 1.84l5.25 2.25a1 1 0 00.575 0l5.25-2.25a1 1 0 00.394-1.84l-7-3z"/>
+                        <path d="M9.25 8.5l-2.5-1.08a1 1 0 00-.575 0l-2.5 1.08a1 1 0 00.394 1.84l2.5-1.08 2.5 1.08a1 1 0 00.788-1.84zM9.25 12.5l-2.5-1.08a1 1 0 00-.575 0l-2.5 1.08a1 1 0 00.394 1.84l2.5-1.08 2.5 1.08a1 1 0 00.788-1.84z"/>
+                    </svg>
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-800 mb-2">Educational Purpose</h3>
+                        <p class="text-gray-700 leading-relaxed">
+                            This platform is created <strong>solely for educational purposes</strong> to help students and learners 
+                            improve their knowledge, test their understanding, and practice concepts in a supportive learning environment. 
+                            Use this tool as a supplement to your studies, not as a replacement for formal education or professional guidance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-purple-50 border-l-4 border-purple-400 p-4 rounded-r-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-purple-600 mr-3 mt-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <div>
+                        <h3 class="text-lg font-semibold text-purple-800 mb-2">Practice & Learning</h3>
+                        <p class="text-gray-700 leading-relaxed">
+                            The quizzes are meant to be a <strong>practice tool</strong> to reinforce learning, identify areas for improvement, 
+                            and build confidence. Treat each quiz as a learning opportunity rather than a definitive assessment of your knowledge.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Info -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-8 text-center">
+            <p class="text-gray-600 mb-2">You are about to practice:</p>
+            <h2 class="text-2xl font-bold text-gray-800">{{ subject.name }}</h2>
+            {% if subject.code %}
+                <p class="text-sm text-gray-500 mt-1">{{ subject.code }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="{% url 'quiz:select_semester' %}" class="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition duration-300 text-center">
+                <span class="flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    Go Back
+                </span>
+            </a>
+            <a href="{% url 'quiz:select_unit' subject.id %}" class="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition duration-300 text-center transform hover:scale-105">
+                <span class="flex items-center justify-center">
+                    I Understand, Continue
+                    <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                    </svg>
+                </span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
