@@ -15,9 +15,18 @@ class QuizAttempt(models.Model):
     total_questions = models.IntegerField(default=10)
     quiz_mode = models.CharField(max_length=20, choices=QUIZ_MODE_CHOICES, default='random')
     attempted_at = models.DateTimeField(auto_now_add=True)
+    time_taken = models.IntegerField(null=True, blank=True, help_text='Time taken in seconds (only for random mode)')
     
     def __str__(self):
         return f"{self.user.username} - {self.subject.name} - Unit {self.unit} - {self.score}/{self.total_questions}"
+    
+    def get_time_taken_display(self):
+        """Format time_taken in MM:SS format"""
+        if self.time_taken is None:
+            return None
+        minutes = self.time_taken // 60
+        seconds = self.time_taken % 60
+        return f"{minutes}:{seconds:02d}"
     
     class Meta:
         ordering = ['-attempted_at']

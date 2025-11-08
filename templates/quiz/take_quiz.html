@@ -5,12 +5,27 @@
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <div class="bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-lg shadow-xl p-4 md:p-8 mb-4 md:mb-8">
-        <h1 class="text-xl md:text-3xl font-bold mb-2">{{ subject.name }} - Unit {{ unit }}</h1>
-        <p class="text-sm md:text-lg opacity-90">Total Questions: {{ questions|length }}</p>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div>
+                <h1 class="text-xl md:text-3xl font-bold mb-2">{{ subject.name }} - Unit {{ unit }}</h1>
+                <p class="text-sm md:text-lg opacity-90">Total Questions: {{ questions|length }}</p>
+            </div>
+            {% if quiz_mode == 'random' %}
+            <div class="mt-4 md:mt-0">
+                <div id="timer-container" class="bg-red-600 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center">
+                    <div class="text-xs md:text-sm opacity-90 mb-1">Time Remaining</div>
+                    <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
     
-    <form method="post" action="{% url 'quiz:submit_quiz' %}" class="space-y-4 md:space-y-6">
+    <form method="post" action="{% url 'quiz:submit_quiz' %}" id="quiz-form" class="space-y-4 md:space-y-6">
         {% csrf_token %}
+        {% if quiz_mode == 'random' %}
+        <input type="hidden" name="time_taken" id="time_taken" value="0">
+        {% endif %}
         
         {% for question in questions %}
             <div class="bg-white rounded-lg shadow-lg p-4 md:p-8 border-l-4 border-purple-600">
@@ -72,5 +87,59 @@
         </div>
     </form>
 </div>
+
+{% if quiz_mode == 'random' %}
+<script>
+    // Timer functionality for random mode only
+    let timeRemaining = 600; // 10 minutes in seconds
+    let timeElapsed = 0;
+    const timerElement = document.getElementById('timer');
+    const timerContainer = document.getElementById('timer-container');
+    const quizForm = document.getElementById('quiz-form');
+    const timeTakenInput = document.getElementById('time_taken');
+    let timerInterval;
+
+    function updateTimer() {
+        if (timeRemaining <= 0) {
+            clearInterval(timerInterval);
+            timerElement.textContent = '00:00';
+            timeTakenInput.value = timeElapsed;
+            // Automatically submit the form
+            alert('Time is up! Your quiz will be submitted automatically.');
+            quizForm.submit();
+            return;
+        }
+        
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        timerElement.textContent = formattedTime;
+        
+        // Change color when time is running low
+        if (timeRemaining <= 60) {
+            timerContainer.classList.remove('bg-red-600', 'bg-orange-600');
+            timerContainer.classList.add('bg-red-800');
+            timerElement.classList.add('animate-pulse');
+        } else if (timeRemaining <= 180) {
+            timerContainer.classList.remove('bg-red-600', 'bg-red-800');
+            timerContainer.classList.add('bg-orange-600');
+            timerElement.classList.remove('animate-pulse');
+        }
+        
+        timeElapsed++;
+        timeTakenInput.value = timeElapsed;
+        timeRemaining--;
+    }
+
+    // Start the timer when page loads
+    timerInterval = setInterval(updateTimer, 1000);
+    
+    // Update time taken when form is manually submitted
+    quizForm.addEventListener('submit', function() {
+        clearInterval(timerInterval);
+        timeTakenInput.value = timeElapsed;
+    });
+</script>
+{% endif %}
 {% endblock %}
 

@@ -123,13 +123,23 @@ def submit_quiz(request):
     score = 0
     quiz_mode = request.session.get('quiz_mode', 'random')
     
+    # Get time taken for random mode
+    time_taken = None
+    if quiz_mode == 'random':
+        time_taken_str = request.POST.get('time_taken', '0')
+        try:
+            time_taken = int(time_taken_str)
+        except (ValueError, TypeError):
+            time_taken = None
+    
     quiz_attempt = QuizAttempt.objects.create(
         user=request.user,
         subject=subject,
         unit=unit,
         score=0,
         total_questions=len(question_ids),
-        quiz_mode=quiz_mode
+        quiz_mode=quiz_mode,
+        time_taken=time_taken
     )
     
     results = []
