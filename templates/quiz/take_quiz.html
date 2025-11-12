@@ -3,6 +3,17 @@
 {% block title %}Quiz - {{ subject.name }} Unit {{ unit }}{% endblock %}
 
 {% block content %}
+<!-- Fixed Timer at Top -->
+{% if quiz_mode == 'random' %}
+<div id="timer-container" class="fixed top-0 left-0 right-0 bg-red-600 text-white shadow-lg z-50 py-3 px-4">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+        <div class="text-sm md:text-base opacity-90">Time Remaining</div>
+        <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
+    </div>
+</div>
+<div class="h-16 md:h-20"></div> <!-- Spacer to prevent content overlap -->
+{% endif %}
+
 <div class="max-w-4xl mx-auto">
     <div class="bg-gradient-to-r from-purple-600 to-purple-800 text-white rounded-lg shadow-xl p-4 md:p-8 mb-4 md:mb-8">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -10,14 +21,6 @@
                 <h1 class="text-xl md:text-3xl font-bold mb-2">{{ subject.name }} - Unit {{ unit }}</h1>
                 <p class="text-sm md:text-lg opacity-90">Total Questions: {{ questions|length }}</p>
             </div>
-            {% if quiz_mode == 'random' %}
-            <div class="mt-4 md:mt-0">
-                <div id="timer-container" class="bg-red-600 rounded-lg px-4 md:px-6 py-2 md:py-3 text-center">
-                    <div class="text-xs md:text-sm opacity-90 mb-1">Time Remaining</div>
-                    <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
     
