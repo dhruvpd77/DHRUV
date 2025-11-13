@@ -27,7 +27,7 @@
 <div id="timer-container">
     <div class="max-w-4xl mx-auto flex items-center justify-between">
         <div class="text-sm md:text-base opacity-90">Time Remaining</div>
-        <div id="timer" class="text-xl md:text-3xl font-bold">01:00</div>
+        <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
     </div>
 </div>
 <div class="h-20 md:h-24"></div> <!-- Spacer to prevent content overlap -->
@@ -117,8 +117,8 @@
 {% if quiz_mode == 'random' %}
 <script>
     // Timer functionality for random mode only
-    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}60{% endif %}; // Use remaining time if continuing, otherwise 1 minute
-    let timeElapsed = {% if remaining_time %}60 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
+    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}600{% endif %}; // Use remaining time if continuing, otherwise 10 minutes
+    let timeElapsed = {% if remaining_time %}600 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
     const timerElement = document.getElementById('timer');
     const timerContainer = document.getElementById('timer-container');
     const quizForm = document.getElementById('quiz-form');
@@ -182,11 +182,11 @@
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         timerElement.textContent = formattedTime;
         
-        // Change color when time is running low (for 1 minute timer)
-        if (timeRemaining <= 10) {
+        // Change color when time is running low (for 10 minute timer)
+        if (timeRemaining <= 60) {
             timerContainer.style.backgroundColor = '#991b1b'; // red-800
             timerElement.classList.add('animate-pulse');
-        } else if (timeRemaining <= 30) {
+        } else if (timeRemaining <= 180) {
             timerContainer.style.backgroundColor = '#ea580c'; // orange-600
             timerElement.classList.remove('animate-pulse');
         } else {

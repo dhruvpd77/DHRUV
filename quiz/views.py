@@ -69,7 +69,7 @@ def select_quiz_mode(request, subject_id, unit):
         start_time = quiz_data.get('start_time')
         if start_time:
             elapsed_time = time.time() - start_time
-            remaining_time = 60 - elapsed_time  # 1 minute = 60 seconds
+            remaining_time = 600 - elapsed_time  # 10 minutes = 600 seconds
             if remaining_time > 0:
                 continue_quiz = {
                     'remaining_time': int(remaining_time),
@@ -145,7 +145,7 @@ def take_quiz(request, subject_id, unit):
             start_time = quiz_data.get('start_time')
             if start_time:
                 elapsed_time = time.time() - start_time
-                remaining_time = 60 - elapsed_time
+                remaining_time = 600 - elapsed_time
                 if remaining_time <= 0:
                     # Time expired, start new quiz
                     messages.warning(request, 'Time expired. Starting a new quiz.')
@@ -158,7 +158,7 @@ def take_quiz(request, subject_id, unit):
             else:
                 quiz_questions = random.sample(all_questions, 10)
             
-            # Store quiz start time for random mode (1 minute timer)
+            # Store quiz start time for random mode (10 minute timer)
             request.session[session_key] = {
                 'start_time': time.time()
             }
@@ -178,7 +178,7 @@ def take_quiz(request, subject_id, unit):
             start_time = quiz_data.get('start_time')
             if start_time:
                 elapsed_time = time.time() - start_time
-                remaining_time = max(0, int(60 - elapsed_time))
+                remaining_time = max(0, int(600 - elapsed_time))
     
     return render(request, 'quiz/take_quiz.html', {
         'subject': subject,
