@@ -21,7 +21,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-li9k@npv_7i#mmm^5yq!wr+r8#)sy&j*@_j^he9$f2#%694si9'
+# For production, use environment variable: SECRET_KEY
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-li9k@npv_7i#mmm^5yq!wr+r8#)sy&j*@_j^he9$f2#%694si9')
 
 # Detect if running on PythonAnywhere
 ON_PYTHONANYWHERE = 'PYTHONANYWHERE_DOMAIN' in os.environ
@@ -154,3 +155,27 @@ LOGIN_URL = 'accounts:login'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# AI API Configuration
+# Choose your AI provider: 'openai', 'groq', 'huggingface', 'gemini', 'ollama'
+AI_PROVIDER = os.environ.get('AI_PROVIDER', 'groq')  # Default to Groq (free & fast)
+
+# OpenAI Configuration (requires payment method)
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+
+# Groq Configuration (FREE - No payment required, very fast!)
+# Get free API key at: https://console.groq.com/keys
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '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')
+
+# Hugging Face Configuration (FREE - No payment required)
+# Get free API key at: https://huggingface.co/settings/tokens
+HUGGINGFACE_API_KEY = os.environ.get('HUGGINGFACE_API_KEY', '')
+
+# Google Gemini Configuration (FREE tier available)
+# Get free API key at: https://makersuite.google.com/app/apikey
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+# Ollama Configuration (FREE - Runs locally, no API key needed)
+# Install from: https://ollama.ai
+# Then run: ollama pull llama2
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')

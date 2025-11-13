@@ -78,13 +78,20 @@
                         {% endif %}
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                         {% if result.attempted and not result.is_correct %}
                             <div class="p-3 bg-red-100 border-2 border-red-300 rounded-lg">
-                                <p class="text-sm text-red-700 font-semibold mb-1">Your Answer:</p>
+                                <p class="text-sm text-red-700 font-semibold mb-1">Your Answer (Wrong):</p>
                                 <div class="text-gray-800">
                                     <span class="font-bold">{{ result.selected }}.</span>
                                     <pre class="whitespace-pre-wrap font-sans inline">{% if result.selected == 'A' %}{{ result.question.option_a }}{% elif result.selected == 'B' %}{{ result.question.option_b }}{% elif result.selected == 'C' %}{{ result.question.option_c }}{% elif result.selected == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                                </div>
+                            </div>
+                            <div class="p-3 bg-green-100 border-2 border-green-300 rounded-lg">
+                                <p class="text-sm text-green-700 font-semibold mb-1">Correct Answer:</p>
+                                <div class="text-gray-800">
+                                    <span class="font-bold">{{ result.correct }}.</span>
+                                    <pre class="whitespace-pre-wrap font-sans inline">{% if result.correct == 'A' %}{{ result.question.option_a }}{% elif result.correct == 'B' %}{{ result.question.option_b }}{% elif result.correct == 'C' %}{{ result.question.option_c }}{% elif result.correct == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
                                 </div>
                             </div>
                         {% elif not result.attempted %}
@@ -94,14 +101,59 @@
                                     Not Attempted
                                 </div>
                             </div>
-                        {% endif %}
-                        
-                        <div class="p-3 bg-green-100 border-2 border-green-300 rounded-lg">
-                            <p class="text-sm text-green-700 font-semibold mb-1">Correct Answer:</p>
-                            <div class="text-gray-800">
-                                <span class="font-bold">{{ result.correct }}.</span>
-                                <pre class="whitespace-pre-wrap font-sans inline">{% if result.correct == 'A' %}{{ result.question.option_a }}{% elif result.correct == 'B' %}{{ result.question.option_b }}{% elif result.correct == 'C' %}{{ result.question.option_c }}{% elif result.correct == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                            <div class="p-3 bg-green-100 border-2 border-green-300 rounded-lg">
+                                <p class="text-sm text-green-700 font-semibold mb-1">Correct Answer:</p>
+                                <div class="text-gray-800">
+                                    <span class="font-bold">{{ result.correct }}.</span>
+                                    <pre class="whitespace-pre-wrap font-sans inline">{% if result.correct == 'A' %}{{ result.question.option_a }}{% elif result.correct == 'B' %}{{ result.question.option_b }}{% elif result.correct == 'C' %}{{ result.question.option_c }}{% elif result.correct == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                                </div>
                             </div>
+                        {% else %}
+                            <div class="p-3 bg-green-100 border-2 border-green-300 rounded-lg md:col-span-2">
+                                <p class="text-sm text-green-700 font-semibold mb-1">Your Answer (Correct):</p>
+                                <div class="text-gray-800">
+                                    <span class="font-bold">{{ result.correct }}.</span>
+                                    <pre class="whitespace-pre-wrap font-sans inline">{% if result.correct == 'A' %}{{ result.question.option_a }}{% elif result.correct == 'B' %}{{ result.question.option_b }}{% elif result.correct == 'C' %}{{ result.question.option_c }}{% elif result.correct == 'D' %}{{ result.question.option_d }}{% endif %}</pre>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Understand Solution Button and Section -->
+                    <div class="mt-4">
+                        <button 
+                            type="button" 
+                            class="understand-btn w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-4 md:py-2 md:px-4 rounded-lg transition duration-300 shadow-md text-sm md:text-base flex items-center justify-center min-h-[44px] touch-manipulation"
+                            data-question-id="{{ result.question.id }}"
+                            onclick="toggleSolution({{ result.question.id }})"
+                        >
+                            <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                            </svg>
+                            <span class="btn-text">Understand Solution</span>
+                            <span class="btn-loading hidden">Loading...</span>
+                        </button>
+                        
+                        <!-- Solution Display Area -->
+                        <div id="solution-{{ result.question.id }}" class="solution-container hidden mt-4 p-3 md:p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="text-base md:text-lg font-bold text-blue-800 flex items-center">
+                                    <svg class="w-5 h-5 md:w-6 md:h-6 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <span class="hidden sm:inline">Step-by-Step Solution</span>
+                                    <span class="sm:hidden">Solution</span>
+                                </h3>
+                                <button 
+                                    type="button" 
+                                    onclick="toggleSolution({{ result.question.id }})"
+                                    class="text-blue-600 hover:text-blue-800 active:text-blue-900 font-bold text-2xl md:text-xl min-w-[44px] min-h-[44px] flex items-center justify-center touch-manipulation"
+                                    aria-label="Close solution"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <div id="solution-content-{{ result.question.id }}" class="solution-content text-gray-700 whitespace-pre-wrap text-sm md:text-base leading-relaxed overflow-x-auto"></div>
                         </div>
                     </div>
                 </div>
@@ -109,19 +161,140 @@
         </div>
     </div>
     
-    <div class="text-center space-y-3 md:space-y-0 md:space-x-4 flex flex-col md:flex-row justify-center items-stretch md:items-center">
+    <div class="text-center space-y-3 md:space-y-0 md:space-x-4 flex flex-col md:flex-row justify-center items-stretch md:items-center pb-4 md:pb-0">
         {% if quiz_mode == 'practice_all' and subject_id and unit %}
-            <a href="{% url 'quiz:take_quiz' subject_id unit %}?mode=practice_all" class="inline-block bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+            <a href="{% url 'quiz:take_quiz' subject_id unit %}?mode=practice_all" class="inline-block w-full md:w-auto bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base min-h-[44px] flex items-center justify-center touch-manipulation">
                 Continue Practice All
             </a>
         {% endif %}
-        <a href="{% url 'quiz:select_semester' %}" class="inline-block bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+        <a href="{% url 'quiz:select_semester' %}" class="inline-block w-full md:w-auto bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base min-h-[44px] flex items-center justify-center touch-manipulation">
             Take Another Quiz
         </a>
-        <a href="{% url 'accounts:profile' %}" class="inline-block bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base">
+        <a href="{% url 'accounts:profile' %}" class="inline-block w-full md:w-auto bg-gray-600 hover:bg-gray-700 active:bg-gray-800 text-white font-semibold py-3 px-6 md:px-8 rounded-lg transition duration-300 shadow-lg text-sm md:text-base min-h-[44px] flex items-center justify-center touch-manipulation">
             View Profile
         </a>
     </div>
 </div>
+
+<script>
+// Store solution cache to avoid multiple API calls
+const solutionCache = {};
+
+async function toggleSolution(questionId) {
+    const solutionContainer = document.getElementById(`solution-${questionId}`);
+    const solutionContent = document.getElementById(`solution-content-${questionId}`);
+    const btn = document.querySelector(`[data-question-id="${questionId}"]`);
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoading = btn.querySelector('.btn-loading');
+    
+    // Toggle visibility
+    if (solutionContainer.classList.contains('hidden')) {
+        // Show solution
+        solutionContainer.classList.remove('hidden');
+        
+        // Check if solution is already cached
+        if (solutionCache[questionId]) {
+            solutionContent.innerHTML = formatSolution(solutionCache[questionId]);
+            return;
+        }
+        
+        // Show loading state
+        btnText.classList.add('hidden');
+        btnLoading.classList.remove('hidden');
+        btn.disabled = true;
+        solutionContent.textContent = 'Loading solution...';
+        
+        try {
+            // Fetch solution from API
+            const response = await fetch(`/quiz/question/${questionId}/solution/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Cache the solution
+                solutionCache[questionId] = data.solution;
+                solutionContent.innerHTML = formatSolution(data.solution);
+            } else {
+                // Display error with better formatting
+                const errorText = data.error || 'Failed to load solution';
+                solutionContent.innerHTML = formatError(errorText);
+                solutionContent.classList.add('text-red-600', 'font-medium');
+            }
+        } catch (error) {
+            solutionContent.textContent = `Error: ${error.message || 'Failed to fetch solution'}`;
+            solutionContent.classList.add('text-red-600');
+        } finally {
+            // Reset button state
+            btnText.classList.remove('hidden');
+            btnLoading.classList.add('hidden');
+            btn.disabled = false;
+        }
+    } else {
+        // Hide solution
+        solutionContainer.classList.add('hidden');
+    }
+}
+
+function formatSolution(text) {
+    // Convert markdown-like formatting to HTML
+    let formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.*?)\*/g, '<em>$1</em>') // Italic
+        .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold mt-4 mb-2 text-blue-900">$1</h3>') // H3
+        .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold mt-4 mb-2 text-blue-900">$1</h2>') // H2
+        .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mt-4 mb-2 text-blue-900">$1</h1>') // H1
+        .replace(/^\d+\.\s+(.*$)/gim, '<p class="mb-2 ml-4"><span class="font-semibold">$1</span></p>') // Numbered lists
+        .replace(/^-\s+(.*$)/gim, '<p class="mb-2 ml-4">• $1</p>') // Bullet points
+        .replace(/\n\n/g, '</p><p class="mb-3">') // Paragraphs
+        .replace(/\n/g, '<br>'); // Line breaks
+    
+    // Wrap in paragraph if not already wrapped
+    if (!formatted.startsWith('<')) {
+        formatted = '<p class="mb-3">' + formatted + '</p>';
+    }
+    
+    return formatted;
+}
+
+function formatError(text) {
+    // Format error messages with better styling
+    let formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-red-800">$1</strong>') // Bold
+        .replace(/^(\d+\.\s+)(.*$)/gim, '<p class="mb-2 ml-4"><span class="font-semibold text-red-800">$1</span><span>$2</span></p>') // Numbered lists
+        .replace(/\n\n/g, '</p><p class="mb-3">') // Paragraphs
+        .replace(/\n/g, '<br>'); // Line breaks
+    
+    // Wrap in paragraph if not already wrapped
+    if (!formatted.startsWith('<')) {
+        formatted = '<div class="bg-red-50 border-l-4 border-red-500 p-4 rounded"><p class="mb-3">' + formatted + '</p></div>';
+    } else {
+        formatted = '<div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">' + formatted + '</div>';
+    }
+    
+    return formatted;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
 {% endblock %}
 

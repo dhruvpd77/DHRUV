@@ -3,15 +3,34 @@
 {% block title %}Quiz - {{ subject.name }} Unit {{ unit }}{% endblock %}
 
 {% block content %}
-<!-- Fixed Timer at Top -->
 {% if quiz_mode == 'random' %}
-<div id="timer-container" class="fixed top-0 left-0 right-0 bg-red-600 text-white shadow-lg z-50 py-3 px-4">
+<style>
+    #timer-container {
+        position: fixed !important;
+        top: 64px !important;
+        left: 0 !important;
+        right: 0 !important;
+        background-color: #dc2626 !important;
+        color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+        z-index: 9999 !important;
+        padding: 12px 16px !important;
+        width: 100% !important;
+    }
+    @media (max-width: 768px) {
+        #timer-container {
+            top: 56px !important;
+        }
+    }
+</style>
+<!-- Fixed Timer at Top - Below Navigation -->
+<div id="timer-container">
     <div class="max-w-4xl mx-auto flex items-center justify-between">
         <div class="text-sm md:text-base opacity-90">Time Remaining</div>
         <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
     </div>
 </div>
-<div class="h-16 md:h-20"></div> <!-- Spacer to prevent content overlap -->
+<div class="h-20 md:h-24"></div> <!-- Spacer to prevent content overlap -->
 {% endif %}
 
 <div class="max-w-4xl mx-auto">
@@ -128,12 +147,13 @@
         
         // Change color when time is running low
         if (timeRemaining <= 60) {
-            timerContainer.classList.remove('bg-red-600', 'bg-orange-600');
-            timerContainer.classList.add('bg-red-800');
+            timerContainer.style.backgroundColor = '#991b1b'; // red-800
             timerElement.classList.add('animate-pulse');
         } else if (timeRemaining <= 180) {
-            timerContainer.classList.remove('bg-red-600', 'bg-red-800');
-            timerContainer.classList.add('bg-orange-600');
+            timerContainer.style.backgroundColor = '#ea580c'; // orange-600
+            timerElement.classList.remove('animate-pulse');
+        } else {
+            timerContainer.style.backgroundColor = '#dc2626'; // red-600
             timerElement.classList.remove('animate-pulse');
         }
         

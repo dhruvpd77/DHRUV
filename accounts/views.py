@@ -91,8 +91,21 @@ def profile_view(request):
 @staff_member_required
 def admin_user_management(request):
     """Admin dashboard for user management and tracking"""
+    from semesters.models import Subject
+    
+    # Search functionality
+    search_query = request.GET.get('search', '')
+    if search_query:
+        users = User.objects.filter(
+            username__icontains=search_query
+        ) | User.objects.filter(
+            email__icontains=search_query
+        )
+    else:
+        users = User.objects.all()
+    
     # Get all users with statistics
-    users = User.objects.annotate(
+    users = users.annotate(
         login_count=Count('login_history'),
         quiz_attempts_count=Count('quiz_attempts'),
         total_score=Sum('quiz_attempts__score'),
@@ -105,6 +118,12 @@ def admin_user_management(request):
     total_logins = UserLogin.objects.count()
     total_quiz_attempts = QuizAttempt.objects.count()
     
+    # Calculate average score across all users
+    all_attempts = QuizAttempt.objects.all()
+    total_all_score = sum(a.score for a in all_attempts)
+    total_all_questions = sum(a.total_questions for a in all_attempts)
+    overall_avg_score = (total_all_score / total_all_questions * 100) if total_all_questions > 0 else 0
+    
     # Recent logins (last 10)
     recent_logins = UserLogin.objects.select_related('user').order_by('-login_time')[:10]
     
@@ -116,10 +135,68 @@ def admin_user_management(request):
             top_performers.append({
                 'user': user,
                 'avg_score': round(avg_score, 1),
-                'attempts': user.quiz_attempts_count
+                'attempts': user.quiz_attempts_count,
+                'total_score': user.total_score or 0,
+                'total_questions': user.total_questions or 0
             })
     
     top_performers = sorted(top_performers, key=lambda x: x['avg_score'], reverse=True)[:10]
+    
+    # Unit-wise statistics
+    unit_stats = {}
+    for attempt in QuizAttempt.objects.select_related('subject').all():
+        key = f"{attempt.subject.name} - Unit {attempt.unit}"
+        if key not in unit_stats:
+            unit_stats[key] = {
+                'subject': attempt.subject.name,
+                'unit': attempt.unit,
+                'total_attempts': 0,
+                'total_score': 0,
+                'total_questions': 0,
+                'users_count': set()
+            }
+        unit_stats[key]['total_attempts'] += 1
+        unit_stats[key]['total_score'] += attempt.score
+        unit_stats[key]['total_questions'] += attempt.total_questions
+        unit_stats[key]['users_count'].add(attempt.user_id)
+    
+    # Calculate averages and convert sets to counts
+    for key in unit_stats:
+        stats = unit_stats[key]
+        stats['users_count'] = len(stats['users_count'])
+        if stats['total_questions'] > 0:
+            stats['avg_percentage'] = round((stats['total_score'] / stats['total_questions']) * 100, 1)
+        else:
+            stats['avg_percentage'] = 0
+    
+    # Sort unit stats by total attempts
+    unit_stats_list = sorted(unit_stats.items(), key=lambda x: x[1]['total_attempts'], reverse=True)[:10]
+    
+    # Subject-wise statistics
+    subject_stats = {}
+    for attempt in QuizAttempt.objects.select_related('subject').all():
+        subject_name = attempt.subject.name
+        if subject_name not in subject_stats:
+            subject_stats[subject_name] = {
+                'total_attempts': 0,
+                'total_score': 0,
+                'total_questions': 0,
+                'users_count': set()
+            }
+        subject_stats[subject_name]['total_attempts'] += 1
+        subject_stats[subject_name]['total_score'] += attempt.score
+        subject_stats[subject_name]['total_questions'] += attempt.total_questions
+        subject_stats[subject_name]['users_count'].add(attempt.user_id)
+    
+    for subject_name in subject_stats:
+        stats = subject_stats[subject_name]
+        stats['users_count'] = len(stats['users_count'])
+        if stats['total_questions'] > 0:
+            stats['avg_percentage'] = round((stats['total_score'] / stats['total_questions']) * 100, 1)
+        else:
+            stats['avg_percentage'] = 0
+    
+    subject_stats_list = sorted(subject_stats.items(), key=lambda x: x[1]['total_attempts'], reverse=True)
     
     context = {
         'users': users,
@@ -127,8 +204,12 @@ def admin_user_management(request):
         'active_users': active_users,
         'total_logins': total_logins,
         'total_quiz_attempts': total_quiz_attempts,
+        'overall_avg_score': round(overall_avg_score, 1),
         'recent_logins': recent_logins,
         'top_performers': top_performers,
+        'unit_stats': unit_stats_list,
+        'subject_stats': subject_stats_list,
+        'search_query': search_query,
     }
     return render(request, 'accounts/admin_user_management.html', context)
 
@@ -146,17 +227,50 @@ def admin_user_detail(request, user_id):
     quiz_attempts = QuizAttempt.objects.filter(user=user).select_related('subject').order_by('-attempted_at')
     total_attempts = quiz_attempts.count()
     
-    # Add percentage to each attempt for template display
+    # Add percentage and time info to each attempt for template display
     for attempt in quiz_attempts:
         if attempt.total_questions > 0:
             attempt.percentage = round((attempt.score / attempt.total_questions) * 100, 1)
         else:
             attempt.percentage = 0
+        
+        # Format time taken
+        if attempt.time_taken:
+            minutes = attempt.time_taken // 60
+            seconds = attempt.time_taken % 60
+            attempt.time_display = f"{minutes}:{seconds:02d}"
+        else:
+            attempt.time_display = "N/A"
     
     # Calculate statistics
     total_score = sum(attempt.score for attempt in quiz_attempts)
     total_questions = sum(attempt.total_questions for attempt in quiz_attempts)
     avg_percentage = (total_score / total_questions * 100) if total_questions > 0 else 0
+    
+    # Time statistics (only for random mode attempts)
+    random_attempts = [a for a in quiz_attempts if a.quiz_mode == 'random' and a.time_taken]
+    if random_attempts:
+        total_time = sum(a.time_taken for a in random_attempts)
+        avg_time = total_time / len(random_attempts)
+        fastest_attempt = min(random_attempts, key=lambda x: x.time_taken)
+        slowest_attempt = max(random_attempts, key=lambda x: x.time_taken)
+        
+        def format_time(seconds):
+            minutes = seconds // 60
+            secs = seconds % 60
+            return f"{minutes}:{secs:02d}"
+        
+        time_stats = {
+            'total_time': format_time(total_time),
+            'avg_time': format_time(int(avg_time)),
+            'fastest': fastest_attempt,
+            'slowest': slowest_attempt,
+            'fastest_time': format_time(fastest_attempt.time_taken),
+            'slowest_time': format_time(slowest_attempt.time_taken),
+            'random_attempts_count': len(random_attempts)
+        }
+    else:
+        time_stats = None
     
     best_attempt = quiz_attempts.order_by('-score').first() if quiz_attempts.exists() else None
     worst_attempt = quiz_attempts.order_by('score').first() if quiz_attempts.exists() else None
@@ -172,10 +286,16 @@ def admin_user_detail(request, user_id):
                 'attempts': 0,
                 'total_score': 0,
                 'total_questions': 0,
+                'best_score': 0,
+                'worst_score': float('inf'),
             }
         subject_stats[key]['attempts'] += 1
         subject_stats[key]['total_score'] += attempt.score
         subject_stats[key]['total_questions'] += attempt.total_questions
+        if attempt.score > subject_stats[key]['best_score']:
+            subject_stats[key]['best_score'] = attempt.score
+        if attempt.score < subject_stats[key]['worst_score']:
+            subject_stats[key]['worst_score'] = attempt.score
     
     for key in subject_stats:
         stats = subject_stats[key]
@@ -183,13 +303,25 @@ def admin_user_detail(request, user_id):
             stats['avg_percentage'] = round((stats['total_score'] / stats['total_questions']) * 100, 1)
         else:
             stats['avg_percentage'] = 0
+        if stats['worst_score'] == float('inf'):
+            stats['worst_score'] = 0
+    
+    # Quiz mode statistics
+    random_mode_count = quiz_attempts.filter(quiz_mode='random').count()
+    practice_mode_count = quiz_attempts.filter(quiz_mode='practice_all').count()
+    
+    # Recent activity (last 7 days)
+    from datetime import datetime, timedelta
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    recent_attempts = quiz_attempts.filter(attempted_at__gte=seven_days_ago).count()
+    recent_logins_count = login_history.filter(login_time__gte=seven_days_ago).count()
     
     context = {
         'user': user,
-        'login_history': login_history[:20],  # Show last 20 logins
+        'login_history': login_history[:50],  # Show last 50 logins
         'total_logins': total_logins,
         'last_login_obj': last_login_obj,
-        'quiz_attempts': quiz_attempts[:50],  # Show last 50 attempts
+        'quiz_attempts': quiz_attempts[:100],  # Show last 100 attempts
         'total_attempts': total_attempts,
         'total_score': total_score,
         'total_questions': total_questions,
@@ -197,5 +329,10 @@ def admin_user_detail(request, user_id):
         'best_attempt': best_attempt,
         'worst_attempt': worst_attempt,
         'subject_stats': subject_stats,
+        'time_stats': time_stats,
+        'random_mode_count': random_mode_count,
+        'practice_mode_count': practice_mode_count,
+        'recent_attempts': recent_attempts,
+        'recent_logins_count': recent_logins_count,
     }
     return render(request, 'accounts/admin_user_detail.html', context)

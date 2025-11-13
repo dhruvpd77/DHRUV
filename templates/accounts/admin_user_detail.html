@@ -25,10 +25,16 @@
             {% if last_login_obj %}
             <p class="text-xs mt-2 opacity-75">Last: {{ last_login_obj.login_time|date:"M d, H:i" }}</p>
             {% endif %}
+            {% if recent_logins_count %}
+            <p class="text-xs mt-1 opacity-75">Last 7 days: {{ recent_logins_count }}</p>
+            {% endif %}
         </div>
         <div class="bg-gradient-to-br from-green-500 to-green-600 text-white p-4 sm:p-6 rounded-lg shadow-lg">
             <h3 class="text-sm sm:text-base font-semibold mb-2 opacity-90">Quiz Attempts</h3>
             <p class="text-3xl sm:text-4xl font-bold">{{ total_attempts }}</p>
+            {% if recent_attempts %}
+            <p class="text-xs mt-2 opacity-75">Last 7 days: {{ recent_attempts }}</p>
+            {% endif %}
         </div>
         <div class="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-4 sm:p-6 rounded-lg shadow-lg">
             <h3 class="text-sm sm:text-base font-semibold mb-2 opacity-90">Total Score</h3>
@@ -39,6 +45,49 @@
             <p class="text-3xl sm:text-4xl font-bold">{{ avg_percentage }}%</p>
         </div>
     </div>
+
+    <!-- Quiz Mode Statistics -->
+    {% if random_mode_count or practice_mode_count %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 sm:p-6">
+            <h3 class="text-lg sm:text-xl font-bold text-blue-800 mb-3">🎯 Random Mode</h3>
+            <p class="text-2xl sm:text-3xl font-bold text-blue-600 mb-2">{{ random_mode_count }}</p>
+            <p class="text-sm text-gray-600">Timed quiz attempts</p>
+        </div>
+        <div class="bg-purple-50 border-2 border-purple-200 rounded-lg p-4 sm:p-6">
+            <h3 class="text-lg sm:text-xl font-bold text-purple-800 mb-3">📚 Practice Mode</h3>
+            <p class="text-2xl sm:text-3xl font-bold text-purple-600 mb-2">{{ practice_mode_count }}</p>
+            <p class="text-sm text-gray-600">Practice all attempts</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Time Statistics -->
+    {% if time_stats %}
+    <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4">⏱️ Time Statistics (Random Mode)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-semibold text-gray-600 mb-1">Total Time</h3>
+                <p class="text-2xl font-bold text-gray-900">{{ time_stats.total_time }}</p>
+            </div>
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-sm font-semibold text-gray-600 mb-1">Average Time</h3>
+                <p class="text-2xl font-bold text-gray-900">{{ time_stats.avg_time }}</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <h3 class="text-sm font-semibold text-green-600 mb-1">Fastest</h3>
+                <p class="text-2xl font-bold text-green-700">{{ time_stats.fastest_time }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ time_stats.fastest.subject.name }} - Unit {{ time_stats.fastest.unit }}</p>
+            </div>
+            <div class="bg-red-50 p-4 rounded-lg">
+                <h3 class="text-sm font-semibold text-red-600 mb-1">Slowest</h3>
+                <p class="text-2xl font-bold text-red-700">{{ time_stats.slowest_time }}</p>
+                <p class="text-xs text-gray-500 mt-1">{{ time_stats.slowest.subject.name }} - Unit {{ time_stats.slowest.unit }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Best & Worst Scores -->
     {% if best_attempt or worst_attempt %}
@@ -65,7 +114,7 @@
     <!-- Subject-wise Performance -->
     {% if subject_stats %}
     <div class="bg-white rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4">📊 Subject-wise Performance</h2>
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mb-4">📊 Subject & Unit-wise Performance</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
@@ -73,6 +122,8 @@
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempts</th>
+                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Score</th>
+                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Worst Score</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Score</th>
                     </tr>
                 </thead>
@@ -82,6 +133,16 @@
                         <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ stats.subject }}</td>
                         <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">Unit {{ stats.unit }}</td>
                         <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ stats.attempts }}</td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ stats.best_score }}
+                            </span>
+                        </td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                {{ stats.worst_score }}
+                            </span>
+                        </td>
                         <td class="px-3 sm:px-6 py-4 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full {% if stats.avg_percentage >= 70 %}bg-green-100 text-green-800{% elif stats.avg_percentage >= 50 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
                                 {{ stats.avg_percentage }}%
@@ -129,10 +190,11 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
-                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mode</th>
+                        <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Taken</th>
                         <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
                     </tr>
                 </thead>
@@ -147,6 +209,9 @@
                                 {{ attempt.get_quiz_mode_display }}
                             </span>
                         </td>
+                        <td class="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ attempt.time_display }}
+                        </td>
                         <td class="px-3 sm:px-6 py-4 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full {% if attempt.percentage >= 70 %}bg-green-100 text-green-800{% elif attempt.percentage >= 50 %}bg-yellow-100 text-yellow-800{% else %}bg-red-100 text-red-800{% endif %}">
                                 {{ attempt.score }} / {{ attempt.total_questions }} ({{ attempt.percentage }}%)
@@ -155,7 +220,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="px-6 py-4 text-center text-gray-500">No quiz attempts yet</td>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">No quiz attempts yet</td>
                     </tr>
                     {% endfor %}
                 </tbody>

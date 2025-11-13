@@ -1,10 +1,23 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
 from semesters.models import Semester, Subject, Question
 from .models import QuizAttempt, QuizAnswer
 import random
 import time
+import requests
+import json
+from django.conf import settings
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
+try:
+    import google.generativeai as genai
+except ImportError:
+    genai = None
 
 @login_required
 def select_semester(request):
@@ -273,3 +286,218 @@ def submit_quiz(request):
         'subject_id': subject_id,
         'unit': unit
     })
+
+@login_required
+@require_http_methods(["POST"])
+def get_question_solution(request, question_id):
+    """Generate AI-powered solution explanation for a question"""
+    question = get_object_or_404(Question, id=question_id)
+    
+    # Get AI provider from settings
+    ai_provider = getattr(settings, 'AI_PROVIDER', 'groq').lower()
+    
+    # Build the prompt for the AI - Focus on direct solution steps
+    prompt = f"""Solve this MCQ question and provide ONLY the solution steps and calculations. Be direct and concise.
+
+Question: {question.question_text}
+
+Options:
+A. {question.option_a}
+B. {question.option_b}
+C. {question.option_c}
+D. {question.option_d}
+
+Correct Answer: {question.correct_answer}
+
+Provide ONLY:
+1. Direct solution steps with calculations
+2. How to arrive at the answer {question.correct_answer}
+3. Brief explanation of why {question.correct_answer} is correct
+
+Do NOT give lengthy explanations. Just show the solution method, calculations, and why the answer is {question.correct_answer}. Be concise and to the point."""
+
+    try:
+        solution = None
+        
+        # Route to appropriate AI provider
+        if ai_provider == 'groq':
+            solution = get_groq_solution(prompt)
+        elif ai_provider == 'huggingface':
+            solution = get_huggingface_solution(prompt)
+        elif ai_provider == 'gemini':
+            solution = get_gemini_solution(prompt)
+        elif ai_provider == 'ollama':
+            solution = get_ollama_solution(prompt)
+        elif ai_provider == 'openai':
+            solution = get_openai_solution(prompt)
+        else:
+            return JsonResponse({
+                'error': f'Unknown AI provider: {ai_provider}. Supported: groq, huggingface, gemini, ollama, openai'
+            }, status=500)
+        
+        if solution:
+            return JsonResponse({
+                'success': True,
+                'solution': solution
+            })
+        else:
+            return JsonResponse({
+                'error': 'Failed to generate solution. Please check your API configuration.'
+            }, status=500)
+        
+    except Exception as e:
+        error_message = str(e)
+        error_type = 'unknown'
+        user_friendly_message = None
+        
+        # Check for specific OpenAI API errors
+        if 'insufficient_quota' in error_message or 'quota' in error_message.lower():
+            error_type = 'quota_exceeded'
+            user_friendly_message = (
+                "⚠️ API Quota Exceeded\n\n"
+                "Your OpenAI API key has exceeded its quota or doesn't have billing set up.\n\n"
+                "To fix this:\n"
+                "1. Go to https://platform.openai.com/account/billing\n"
+                "2. Add a payment method to your account\n"
+                "3. Check your usage limits at https://platform.openai.com/usage\n"
+                "4. If you're on a free tier, you may need to upgrade to a paid plan\n\n"
+                "Alternatively, you can use a different API key with available credits."
+            )
+        elif 'invalid_api_key' in error_message.lower() or 'authentication' in error_message.lower():
+            error_type = 'invalid_key'
+            user_friendly_message = (
+                "🔑 Invalid API Key\n\n"
+                "The OpenAI API key is invalid or has been revoked.\n\n"
+                "To fix this:\n"
+                "1. Go to https://platform.openai.com/api-keys\n"
+                "2. Create a new API key\n"
+                "3. Update it in your settings.py or environment variables"
+            )
+        elif 'rate_limit' in error_message.lower():
+            error_type = 'rate_limit'
+            user_friendly_message = (
+                "⏱️ Rate Limit Exceeded\n\n"
+                "Too many requests. Please wait a moment and try again."
+            )
+        
+        # Use user-friendly message if available, otherwise use original error
+        final_message = user_friendly_message if user_friendly_message else f'Error generating solution: {error_message}'
+        
+        return JsonResponse({
+            'error': final_message,
+            'error_type': error_type
+        }, status=500)
+
+
+def get_groq_solution(prompt):
+    """Get solution from Groq API (FREE - No payment required!)"""
+    api_key = getattr(settings, 'GROQ_API_KEY', '')
+    if not api_key:
+        raise Exception('Groq API key not configured. Get free key at: https://console.groq.com/keys')
+    
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": "llama-3.1-8b-instant",  # Free and fast model
+        "messages": [
+            {"role": "system", "content": "You are a concise educational assistant. Provide only direct solution steps and calculations. No lengthy explanations."},
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 600,
+        "temperature": 0.5
+    }
+    
+    response = requests.post(url, headers=headers, json=data, timeout=30)
+    response.raise_for_status()
+    result = response.json()
+    return result['choices'][0]['message']['content']
+
+
+def get_huggingface_solution(prompt):
+    """Get solution from Hugging Face Inference API (FREE)"""
+    api_key = getattr(settings, 'HUGGINGFACE_API_KEY', '')
+    if not api_key:
+        raise Exception('Hugging Face API key not configured. Get free key at: https://huggingface.co/settings/tokens')
+    
+    # Using Meta Llama 3 model (free)
+    url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {
+        "inputs": f"<|system|>\nYou are a concise educational assistant. Provide only direct solution steps and calculations. No lengthy explanations.\n<|user|>\n{prompt}\n<|assistant|>",
+        "parameters": {
+            "max_new_tokens": 600,
+            "temperature": 0.5,
+            "return_full_text": False
+        }
+    }
+    
+    response = requests.post(url, headers=headers, json=payload, timeout=60)
+    response.raise_for_status()
+    result = response.json()
+    
+    if isinstance(result, list) and len(result) > 0:
+        return result[0].get('generated_text', '')
+    return result.get('generated_text', '')
+
+
+def get_gemini_solution(prompt):
+    """Get solution from Google Gemini API (FREE tier)"""
+    if genai is None:
+        raise Exception('Google Generative AI library not installed. Install with: pip install google-generativeai')
+    
+    api_key = getattr(settings, 'GEMINI_API_KEY', '')
+    if not api_key:
+        raise Exception('Gemini API key not configured. Get free key at: https://makersuite.google.com/app/apikey')
+    
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel('gemini-pro')
+    
+    full_prompt = f"You are a concise educational assistant. Provide only direct solution steps and calculations. No lengthy explanations.\n\n{prompt}"
+    response = model.generate_content(full_prompt)
+    return response.text
+
+
+def get_ollama_solution(prompt):
+    """Get solution from Ollama (FREE - Runs locally, no API key needed)"""
+    base_url = getattr(settings, 'OLLAMA_BASE_URL', 'http://localhost:11434')
+    url = f"{base_url}/api/generate"
+    
+    data = {
+        "model": "llama2",  # You can change to llama3, mistral, etc.
+        "prompt": f"You are a concise educational assistant. Provide only direct solution steps and calculations. No lengthy explanations.\n\n{prompt}",
+        "stream": False,
+        "options": {
+            "temperature": 0.5,
+            "num_predict": 600
+        }
+    }
+    
+    response = requests.post(url, json=data, timeout=120)
+    response.raise_for_status()
+    result = response.json()
+    return result.get('response', '')
+
+
+def get_openai_solution(prompt):
+    """Get solution from OpenAI API (requires payment method)"""
+    if OpenAI is None:
+        raise Exception('OpenAI library not installed. Install with: pip install openai')
+    
+    api_key = getattr(settings, 'OPENAI_API_KEY', '')
+    if not api_key:
+        raise Exception('OpenAI API key not configured.')
+    
+    client = OpenAI(api_key=api_key)
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a concise educational assistant. Provide only direct solution steps and calculations. No lengthy explanations."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=600,
+        temperature=0.5
+    )
+    return response.choices[0].message.content

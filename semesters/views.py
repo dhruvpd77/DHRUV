@@ -329,7 +329,8 @@ def upload_questions(request):
                     
                     # Get values and preserve whitespace/indentation
                     question_text = row.get('question_text', '')
-                    mcq_answer = str(row.get('MCQ Answer', '')).strip().upper()
+                    mcq_answer_raw = str(row.get('MCQ Answer', '')).strip()  # Keep original for text matching
+                    mcq_answer = mcq_answer_raw.upper()  # Uppercase for letter matching
                     option_a = row.get('option A', '')
                     option_b = row.get('option B', '')
                     option_c = row.get('option C', '')
@@ -372,6 +373,20 @@ def upload_questions(request):
                         continue
                     
                     # Convert MCQ Answer to letter format (A, B, C, D)
+                    # Support both formats:
+                    # 1. Existing format: "A", "B", "C", "D", "Option A", "A)", etc.
+                    # 2. New format: Actual text from options (e.g., "Uniform Resource Locator")
+                    correct_answer = None
+                    
+                    # Helper function to normalize text for comparison (case-insensitive, normalize whitespace)
+                    def normalize_text(text):
+                        if not text:
+                            return ''
+                        # Strip and normalize multiple spaces to single space
+                        normalized = ' '.join(str(text).strip().split())
+                        return normalized
+                    
+                    # First, try existing format (letter-based matching)
                     if mcq_answer in ['A', 'B', 'C', 'D']:
                         correct_answer = mcq_answer
                     elif mcq_answer.startswith('A'):
@@ -382,7 +397,28 @@ def upload_questions(request):
                         correct_answer = 'C'
                     elif mcq_answer.startswith('D'):
                         correct_answer = 'D'
-                    else:
+                    
+                    # If not found, try new format (text-based matching)
+                    # Compare the MCQ answer text with each option text (case-insensitive, normalized whitespace)
+                    if correct_answer is None:
+                        mcq_answer_normalized = normalize_text(mcq_answer_raw).lower()
+                        option_a_normalized = normalize_text(option_a).lower()
+                        option_b_normalized = normalize_text(option_b).lower()
+                        option_c_normalized = normalize_text(option_c).lower()
+                        option_d_normalized = normalize_text(option_d).lower()
+                        
+                        # Case-insensitive exact match
+                        if mcq_answer_normalized == option_a_normalized:
+                            correct_answer = 'A'
+                        elif mcq_answer_normalized == option_b_normalized:
+                            correct_answer = 'B'
+                        elif mcq_answer_normalized == option_c_normalized:
+                            correct_answer = 'C'
+                        elif mcq_answer_normalized == option_d_normalized:
+                            correct_answer = 'D'
+                    
+                    # Default fallback if no match found
+                    if correct_answer is None:
                         correct_answer = 'A'  # Default
                     
                     # Create question
