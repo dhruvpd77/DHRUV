@@ -69,7 +69,7 @@ def select_quiz_mode(request, subject_id, unit):
         start_time = quiz_data.get('start_time')
         if start_time:
             elapsed_time = time.time() - start_time
-            remaining_time = 600 - elapsed_time  # 10 minutes = 600 seconds
+            remaining_time = 60 - elapsed_time  # 1 minute = 60 seconds
             if remaining_time > 0:
                 continue_quiz = {
                     'remaining_time': int(remaining_time),
@@ -145,7 +145,7 @@ def take_quiz(request, subject_id, unit):
             start_time = quiz_data.get('start_time')
             if start_time:
                 elapsed_time = time.time() - start_time
-                remaining_time = 600 - elapsed_time
+                remaining_time = 60 - elapsed_time
                 if remaining_time <= 0:
                     # Time expired, start new quiz
                     messages.warning(request, 'Time expired. Starting a new quiz.')
@@ -158,7 +158,7 @@ def take_quiz(request, subject_id, unit):
             else:
                 quiz_questions = random.sample(all_questions, 10)
             
-            # Store quiz start time for random mode
+            # Store quiz start time for random mode (1 minute timer)
             request.session[session_key] = {
                 'start_time': time.time()
             }
@@ -178,7 +178,7 @@ def take_quiz(request, subject_id, unit):
             start_time = quiz_data.get('start_time')
             if start_time:
                 elapsed_time = time.time() - start_time
-                remaining_time = max(0, int(600 - elapsed_time))
+                remaining_time = max(0, int(60 - elapsed_time))
     
     return render(request, 'quiz/take_quiz.html', {
         'subject': subject,
@@ -193,13 +193,60 @@ def submit_quiz(request):
     if request.method != 'POST':
         return redirect('quiz:select_semester')
     
+    # Try to get from session first, then from POST (for timer auto-submit)
     question_ids = request.session.get('quiz_questions', [])
-    subject_id = request.session.get('subject_id')
-    unit = request.session.get('unit')
+    subject_id = request.session.get('subject_id') or request.POST.get('subject_id')
+    unit = request.session.get('unit') or request.POST.get('unit')
+    quiz_mode = request.session.get('quiz_mode') or request.POST.get('quiz_mode', 'random')
     
-    if not question_ids or not subject_id or not unit:
-        messages.error(request, 'Quiz session expired. Please start again.')
+    # Convert to proper types
+    try:
+        if subject_id:
+            subject_id = int(subject_id)
+        if unit:
+            unit = int(unit)
+    except (ValueError, TypeError):
+        messages.error(request, 'Invalid quiz data. Please start again.')
         return redirect('quiz:select_semester')
+    
+    # If session data is missing, try to reconstruct from form data
+    if not question_ids or not subject_id or not unit:
+        # Get subject_id and unit from POST (for timer auto-submit)
+        if not subject_id or not unit:
+            messages.error(request, 'Quiz session expired. Please start again.')
+            return redirect('quiz:select_semester')
+        
+        # If we have subject_id and unit but missing question_ids, try to get from database
+        # This handles cases where session expired but we still have form data
+        subject = get_object_or_404(Subject, id=subject_id)
+        all_questions = Question.objects.filter(subject=subject, unit=unit)
+        
+        if all_questions.exists():
+            # Extract question IDs from form data (from radio button names)
+            form_question_ids = []
+            for key in request.POST.keys():
+                if key.startswith('question_'):
+                    try:
+                        q_id = int(key.replace('question_', ''))
+                        form_question_ids.append(q_id)
+                    except ValueError:
+                        continue
+            
+            if form_question_ids:
+                # Use questions from form
+                question_ids = form_question_ids
+            else:
+                # Fallback: use first 10 questions
+                question_ids = list(all_questions[:10].values_list('id', flat=True))
+            
+            # Restore session for this submission
+            request.session['quiz_questions'] = question_ids
+            request.session['subject_id'] = subject_id
+            request.session['unit'] = unit
+            request.session['quiz_mode'] = quiz_mode
+        else:
+            messages.error(request, 'No questions found for this quiz. Please start again.')
+            return redirect('quiz:select_semester')
     
     subject = get_object_or_404(Subject, id=subject_id)
     # Get questions and preserve order
@@ -229,14 +276,33 @@ def submit_quiz(request):
         time_taken=time_taken
     )
     
+    # Evaluate all questions:
+    # - Answered questions: Check if correct/incorrect, add to score if correct
+    # - Unanswered questions: Mark as "Not Attempted", no score added
+    # Example: 6 answered (4 correct, 2 wrong) + 4 unanswered = Score: 4/10
     results = []
+    
+    # Debug: Log all POST data to see what's being submitted
+    # print("POST data:", dict(request.POST))
+    
     for question in questions:
+        # Get selected answer - check both POST and form data
         selected = request.POST.get(f'question_{question.id}')
-        if selected:
+        
+        # If not found, try alternative format (some browsers might send differently)
+        if not selected:
+            # Try to get from POST list
+            selected_list = request.POST.getlist(f'question_{question.id}')
+            if selected_list:
+                selected = selected_list[0]
+        
+        if selected and selected.strip():
+            # Answer was selected - evaluate it (correct or incorrect)
             is_correct = (selected == question.correct_answer)
             if is_correct:
-                score += 1
+                score += 1  # Only correct answers add to score
             
+            # Save the answer to database
             QuizAnswer.objects.create(
                 quiz_attempt=quiz_attempt,
                 question=question,
@@ -244,6 +310,7 @@ def submit_quiz(request):
                 is_correct=is_correct
             )
             
+            # Add to results with evaluation (correct/incorrect)
             results.append({
                 'question': question,
                 'selected': selected,
@@ -252,7 +319,9 @@ def submit_quiz(request):
                 'attempted': True
             })
         else:
-            # Question not attempted - still show it in results
+            # Question not attempted (timer expired or user didn't answer)
+            # Mark as "Not Attempted" - no score, but show in results
+            # Don't create QuizAnswer record for unanswered questions
             results.append({
                 'question': question,
                 'selected': None,
@@ -261,6 +330,8 @@ def submit_quiz(request):
                 'attempted': False
             })
     
+    # Final score = only from answered questions (correct answers)
+    # Example: 6 answered (4 correct) + 4 unanswered = Score: 4/10
     quiz_attempt.score = score
     quiz_attempt.save()
     

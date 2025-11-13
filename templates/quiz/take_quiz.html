@@ -27,7 +27,7 @@
 <div id="timer-container">
     <div class="max-w-4xl mx-auto flex items-center justify-between">
         <div class="text-sm md:text-base opacity-90">Time Remaining</div>
-        <div id="timer" class="text-xl md:text-3xl font-bold">10:00</div>
+        <div id="timer" class="text-xl md:text-3xl font-bold">01:00</div>
     </div>
 </div>
 <div class="h-20 md:h-24"></div> <!-- Spacer to prevent content overlap -->
@@ -48,6 +48,10 @@
         {% if quiz_mode == 'random' %}
         <input type="hidden" name="time_taken" id="time_taken" value="0">
         {% endif %}
+        <!-- Store session data in form for timer auto-submit -->
+        <input type="hidden" name="subject_id" value="{{ subject.id }}">
+        <input type="hidden" name="unit" value="{{ unit }}">
+        <input type="hidden" name="quiz_mode" value="{{ quiz_mode }}">
         
         {% for question in questions %}
             <div class="bg-white rounded-lg shadow-lg p-4 md:p-8 border-l-4 border-purple-600">
@@ -68,7 +72,7 @@
                 
                 <div class="space-y-3 md:space-y-4">
                     <label class="flex items-start p-3 md:p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition duration-200 active:bg-purple-100">
-                        <input type="radio" name="question_{{ question.id }}" value="A" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0" required>
+                        <input type="radio" name="question_{{ question.id }}" value="A" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0">
                         <span class="ml-3 md:ml-4 flex items-start w-full">
                             <span class="font-semibold text-purple-600 mr-2 md:mr-3 flex-shrink-0 text-sm md:text-base">A.</span>
                             <pre class="text-gray-700 whitespace-pre-wrap font-sans flex-1 text-sm md:text-base">{{ question.option_a }}</pre>
@@ -76,7 +80,7 @@
                     </label>
                     
                     <label class="flex items-start p-3 md:p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition duration-200 active:bg-purple-100">
-                        <input type="radio" name="question_{{ question.id }}" value="B" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0" required>
+                        <input type="radio" name="question_{{ question.id }}" value="B" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0">
                         <span class="ml-3 md:ml-4 flex items-start w-full">
                             <span class="font-semibold text-purple-600 mr-2 md:mr-3 flex-shrink-0 text-sm md:text-base">B.</span>
                             <pre class="text-gray-700 whitespace-pre-wrap font-sans flex-1 text-sm md:text-base">{{ question.option_b }}</pre>
@@ -84,7 +88,7 @@
                     </label>
                     
                     <label class="flex items-start p-3 md:p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition duration-200 active:bg-purple-100">
-                        <input type="radio" name="question_{{ question.id }}" value="C" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0" required>
+                        <input type="radio" name="question_{{ question.id }}" value="C" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0">
                         <span class="ml-3 md:ml-4 flex items-start w-full">
                             <span class="font-semibold text-purple-600 mr-2 md:mr-3 flex-shrink-0 text-sm md:text-base">C.</span>
                             <pre class="text-gray-700 whitespace-pre-wrap font-sans flex-1 text-sm md:text-base">{{ question.option_c }}</pre>
@@ -92,7 +96,7 @@
                     </label>
                     
                     <label class="flex items-start p-3 md:p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-600 hover:bg-purple-50 transition duration-200 active:bg-purple-100">
-                        <input type="radio" name="question_{{ question.id }}" value="D" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0" required>
+                        <input type="radio" name="question_{{ question.id }}" value="D" class="w-5 h-5 md:w-6 md:h-6 text-purple-600 mt-1 flex-shrink-0">
                         <span class="ml-3 md:ml-4 flex items-start w-full">
                             <span class="font-semibold text-purple-600 mr-2 md:mr-3 flex-shrink-0 text-sm md:text-base">D.</span>
                             <pre class="text-gray-700 whitespace-pre-wrap font-sans flex-1 text-sm md:text-base">{{ question.option_d }}</pre>
@@ -113,8 +117,8 @@
 {% if quiz_mode == 'random' %}
 <script>
     // Timer functionality for random mode only
-    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}600{% endif %}; // Use remaining time if continuing, otherwise 10 minutes
-    let timeElapsed = {% if remaining_time %}600 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
+    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}60{% endif %}; // Use remaining time if continuing, otherwise 1 minute
+    let timeElapsed = {% if remaining_time %}60 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
     const timerElement = document.getElementById('timer');
     const timerContainer = document.getElementById('timer-container');
     const quizForm = document.getElementById('quiz-form');
@@ -129,14 +133,47 @@
     }
     timerElement.textContent = formatTime(timeRemaining);
 
+    let isSubmitting = false; // Flag to prevent multiple submissions
+    
     function updateTimer() {
         if (timeRemaining <= 0) {
+            if (isSubmitting) return; // Prevent multiple submissions
+            isSubmitting = true;
+            
             clearInterval(timerInterval);
             timerElement.textContent = '00:00';
             timeTakenInput.value = timeElapsed;
-            // Automatically submit the form
-            alert('Time is up! Your quiz will be submitted automatically.');
-            quizForm.submit();
+            
+            // Show message
+            timerContainer.style.backgroundColor = '#991b1b';
+            timerElement.textContent = 'Time Up!';
+            
+            // IMPORTANT: Ensure all form data is captured before submitting
+            // Don't disable inputs - just prevent further interaction visually
+            const allInputs = quizForm.querySelectorAll('input[type="radio"]');
+            allInputs.forEach(input => {
+                input.style.pointerEvents = 'none'; // Prevent clicking but keep values
+                input.style.opacity = '0.6'; // Visual indication
+            });
+            
+            // Ensure submit button is also ready
+            const submitBtn = quizForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false; // Keep enabled so form submits
+            }
+            
+            // Small delay to ensure form data is ready, then submit
+            setTimeout(function() {
+                // Ensure time_taken is set
+                timeTakenInput.value = timeElapsed;
+                
+                // Verify form data is ready (debug - can remove later)
+                const formData = new FormData(quizForm);
+                console.log('Form data before submit:', Array.from(formData.entries()));
+                
+                // Submit the form - this will include all selected radio buttons
+                quizForm.submit();
+            }, 300);
             return;
         }
         
@@ -145,11 +182,11 @@
         const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
         timerElement.textContent = formattedTime;
         
-        // Change color when time is running low
-        if (timeRemaining <= 60) {
+        // Change color when time is running low (for 1 minute timer)
+        if (timeRemaining <= 10) {
             timerContainer.style.backgroundColor = '#991b1b'; // red-800
             timerElement.classList.add('animate-pulse');
-        } else if (timeRemaining <= 180) {
+        } else if (timeRemaining <= 30) {
             timerContainer.style.backgroundColor = '#ea580c'; // orange-600
             timerElement.classList.remove('animate-pulse');
         } else {
