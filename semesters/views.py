@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.files.base import ContentFile
-from .models import Semester, Subject, Question, Unit
+from .models import Semester, Subject, Question, Unit, ProgrammingQuestion
 import pandas as pd
 import openpyxl
 from io import BytesIO
@@ -308,7 +308,14 @@ def upload_questions(request):
             # Expected columns:
             # unit_number | question_text | MCQ Answer | option A | option B | option C | option D | Added By | Verified By
             
+            # Debug: Print column names to help diagnose issues
+            print(f"DEBUG: DataFrame columns: {list(df.columns)}")
+            print(f"DEBUG: Total rows in DataFrame: {len(df)}")
+            if len(df) > 0:
+                print(f"DEBUG: First row sample: {df.iloc[0].to_dict()}")
+            
             questions_created = 0
+            programming_questions_created = 0
             skipped_count = 0
             images_extracted = 0
             
@@ -328,21 +335,54 @@ def upload_questions(request):
                             unit = 1
                     
                     # Get values and preserve whitespace/indentation
-                    question_text = row.get('question_text', '')
-                    mcq_answer_raw = str(row.get('MCQ Answer', '')).strip()  # Keep original for text matching
+                    # Handle pandas Series row access properly
+                    def get_row_value(row, col_name, default=''):
+                        """Get value from pandas Series row, handling various column name formats"""
+                        val = None
+                        # Try exact match first
+                        if col_name in row:
+                            val = row[col_name]
+                        else:
+                            # Try case-insensitive match
+                            for key in row.index:
+                                if str(key).strip().lower() == str(col_name).strip().lower():
+                                    val = row[key]
+                                    break
+                        
+                        if val is None:
+                            return default
+                        
+                        # Handle pandas NaN and None
+                        try:
+                            if pd.isna(val):
+                                return default
+                        except:
+                            pass
+                        
+                        if val is None or str(val).strip().lower() in ['nan', 'none', 'nat', '']:
+                            return default
+                        
+                        return str(val).strip() if val is not None else default
+                    
+                    # Get column values with flexible matching
+                    question_text = get_row_value(row, 'question_text') or get_row_value(row, 'question text') or get_row_value(row, 'Question')
+                    mcq_answer_raw = str(get_row_value(row, 'MCQ Answer') or get_row_value(row, 'mcq answer') or get_row_value(row, 'Answer') or '').strip()
                     mcq_answer = mcq_answer_raw.upper()  # Uppercase for letter matching
-                    option_a = row.get('option A', '')
-                    option_b = row.get('option B', '')
-                    option_c = row.get('option C', '')
-                    option_d = row.get('option D', '')
-                    added_by = row.get('Added By', '')
-                    verified_by = row.get('Verified By', '')
+                    option_a = get_row_value(row, 'option A') or get_row_value(row, 'option_a') or get_row_value(row, 'A')
+                    option_b = get_row_value(row, 'option B') or get_row_value(row, 'option_b') or get_row_value(row, 'B')
+                    option_c = get_row_value(row, 'option C') or get_row_value(row, 'option_c') or get_row_value(row, 'C')
+                    option_d = get_row_value(row, 'option D') or get_row_value(row, 'option_d') or get_row_value(row, 'D')
+                    added_by = get_row_value(row, 'Added By') or get_row_value(row, 'added_by') or ''
+                    verified_by = get_row_value(row, 'Verified By') or get_row_value(row, 'verified_by') or ''
                     
                     # Clean 'nan' strings but preserve actual content
                     def clean_value(val):
-                        if val == 'nan' or val == '':
+                        if not val or val == '':
                             return ''
-                        return val
+                        val_str = str(val).strip()
+                        if val_str.lower() in ['nan', 'none', 'nat', '']:
+                            return ''
+                        return val_str
                     
                     # Clean all values
                     question_text = clean_value(question_text)
@@ -351,26 +391,48 @@ def upload_questions(request):
                     option_c = clean_value(option_c)
                     option_d = clean_value(option_d)
                     
-                    # ONLY EXTRACT MCQs - Skip if question or ANY option is empty
+                    # Skip if question text is empty
                     if not question_text or question_text.strip() == '':
                         skipped_count += 1
                         continue
                     
-                    if not option_a or option_a.strip() == '':
-                        skipped_count += 1
-                        continue
+                    # Check if all 4 options are present (MCQ) or not (Programming Question)
+                    has_all_options = (
+                        option_a and option_a.strip() != '' and
+                        option_b and option_b.strip() != '' and
+                        option_c and option_c.strip() != '' and
+                        option_d and option_d.strip() != ''
+                    )
                     
-                    if not option_b or option_b.strip() == '':
-                        skipped_count += 1
-                        continue
+                    if not has_all_options:
+                        # This is a programming question - save it as ProgrammingQuestion
+                        programming_question = ProgrammingQuestion.objects.create(
+                            subject=subject,
+                            unit=unit,
+                            question_text=question_text,
+                            added_by=clean_value(added_by),
+                            verified_by=clean_value(verified_by)
+                        )
+                        
+                        # Check if this row has an image
+                        if excel_row in images_dict:
+                            try:
+                                img_data = images_dict[excel_row]
+                                img_data.seek(0)
+                                
+                                # Generate unique filename
+                                filename = f'prog_question_{programming_question.id}_{excel_row}.png'
+                                
+                                # Save image to question
+                                programming_question.question_image.save(filename, ContentFile(img_data.read()), save=True)
+                                images_extracted += 1
+                            except Exception as img_error:
+                                pass  # Continue even if image extraction fails
+                        
+                        programming_questions_created += 1
+                        continue  # Skip MCQ processing for programming questions
                     
-                    if not option_c or option_c.strip() == '':
-                        skipped_count += 1
-                        continue
-                    
-                    if not option_d or option_d.strip() == '':
-                        skipped_count += 1
-                        continue
+                    # If we reach here, it's a complete MCQ with all 4 options
                     
                     # Convert MCQ Answer to letter format (A, B, C, D)
                     # Support both formats:
@@ -452,6 +514,11 @@ def upload_questions(request):
                     
                     questions_created += 1
                 except Exception as e:
+                    # Log the error for debugging
+                    import traceback
+                    error_details = f"Row {excel_row}: {str(e)}"
+                    print(f"ERROR processing row: {error_details}")
+                    print(traceback.format_exc())
                     skipped_count += 1
                     continue
             
@@ -461,17 +528,24 @@ def upload_questions(request):
             except:
                 pass
             
+            # Build success message
+            msg_parts = []
             if questions_created > 0:
-                msg = f'✅ {questions_created} MCQ questions uploaded successfully!'
+                msg_parts.append(f'✅ {questions_created} MCQ questions')
+            if programming_questions_created > 0:
+                msg_parts.append(f'✅ {programming_questions_created} Programming questions')
+            
+            if questions_created > 0 or programming_questions_created > 0:
+                msg = 'Uploaded successfully: ' + ', '.join(msg_parts) + '!'
                 if images_extracted > 0:
                     msg += f' ({images_extracted} questions with images)'
                 elif len(images_dict) == 0:
                     msg += ' ⚠️ No images were extracted (file may have XML issues or no images present)'
                 if skipped_count > 0:
-                    msg += f' (Skipped {skipped_count} incomplete rows)'
+                    msg += f' (Skipped {skipped_count} empty/invalid rows)'
                 messages.success(request, msg)
             else:
-                messages.warning(request, f'No valid MCQ questions found. Skipped {skipped_count} rows. Make sure all 4 options (A, B, C, D) have values.')
+                messages.warning(request, f'No valid questions found. Skipped {skipped_count} rows. Make sure questions have text, and MCQs have all 4 options (A, B, C, D).')
             return redirect('semesters:admin_dashboard')
             
         except Exception as e:

@@ -3,12 +3,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
-from semesters.models import Semester, Subject, Question
+from semesters.models import Semester, Subject, Question, ProgrammingQuestion
 from .models import QuizAttempt, QuizAnswer
 import random
 import time
 import requests
 import json
+import subprocess
+import sys
+import os
+import tempfile
 from django.conf import settings
 try:
     from openai import OpenAI
@@ -49,18 +53,20 @@ def about_us(request):
 def select_unit(request, subject_id):
     subject = get_object_or_404(Subject, id=subject_id)
     # Get distinct units for this subject from questions
-    question_units = Question.objects.filter(subject=subject).values_list('unit', flat=True).distinct().order_by('unit')
+    question_units = list(Question.objects.filter(subject=subject).values_list('unit', flat=True).distinct().order_by('unit'))
     
     # Get unit information (descriptions, topics) from Unit model
     from semesters.models import Unit
     unit_info = {}
+    programming_questions_count = {}  # Count programming questions per unit
+    
     for unit_num in question_units:
         try:
             unit_obj = Unit.objects.get(subject=subject, unit_number=unit_num)
             unit_info[unit_num] = {
-                'title': unit_obj.title,
-                'description': unit_obj.description,
-                'topics': unit_obj.get_topics_list(),
+                'title': unit_obj.title or '',
+                'description': unit_obj.description or '',
+                'topics': unit_obj.get_topics_list() or [],
             }
         except Unit.DoesNotExist:
             unit_info[unit_num] = {
@@ -68,12 +74,107 @@ def select_unit(request, subject_id):
                 'description': '',
                 'topics': [],
             }
+        
+        # Count programming questions for this unit
+        prog_count = ProgrammingQuestion.objects.filter(subject=subject, unit=unit_num).count()
+        programming_questions_count[unit_num] = prog_count
     
     return render(request, 'quiz/select_unit.html', {
         'subject': subject,
         'units': question_units,
         'unit_info': unit_info,
+        'programming_questions_count': programming_questions_count,
     })
+
+@login_required
+def view_programming_questions(request, subject_id, unit):
+    """Display all programming questions for a unit"""
+    subject = get_object_or_404(Subject, id=subject_id)
+    programming_questions = ProgrammingQuestion.objects.filter(subject=subject, unit=unit).order_by('id')
+    
+    # Get unit info
+    from semesters.models import Unit
+    try:
+        unit_obj = Unit.objects.get(subject=subject, unit_number=unit)
+        unit_title = unit_obj.title if unit_obj.title else f'Unit {unit}'
+    except Unit.DoesNotExist:
+        unit_title = f'Unit {unit}'
+    
+    return render(request, 'quiz/programming_questions.html', {
+        'subject': subject,
+        'unit': unit,
+        'unit_title': unit_title,
+        'programming_questions': programming_questions,
+    })
+
+@login_required
+@require_http_methods(["POST"])
+def get_programming_solution(request, question_id):
+    """Generate AI-powered solution for a programming question"""
+    question = get_object_or_404(ProgrammingQuestion, id=question_id)
+    
+    # Get AI provider from settings
+    ai_provider = getattr(settings, 'AI_PROVIDER', 'groq').lower()
+    
+    # Build the prompt for the AI - Focus on simplest solution
+    prompt = f"""Solve this Python programming question and provide the SIMPLEST solution with proper code.
+
+Question: {question.question_text}
+
+Provide:
+1. The simplest and most straightforward solution
+2. Complete working Python code with proper indentation
+3. Brief explanation if needed (keep it minimal)
+4. If multiple simple approaches exist, provide up to 3 options (Option 1, Option 2, Option 3)
+
+Format your response as:
+- For single solution: Just provide the code
+- For multiple solutions: Use |||OPTION||| to separate each solution
+
+Be concise and focus on the simplest way to solve this problem."""
+
+    try:
+        solution = None
+        
+        # Route to appropriate AI provider
+        if ai_provider == 'groq':
+            solution = get_groq_solution(prompt)
+        elif ai_provider == 'huggingface':
+            solution = get_huggingface_solution(prompt)
+        elif ai_provider == 'gemini':
+            solution = get_gemini_solution(prompt)
+        elif ai_provider == 'ollama':
+            solution = get_ollama_solution(prompt)
+        elif ai_provider == 'openai':
+            solution = get_openai_solution(prompt)
+        else:
+            return JsonResponse({
+                'error': f'Unknown AI provider: {ai_provider}. Supported: groq, huggingface, gemini, ollama, openai'
+            }, status=500)
+        
+        if solution:
+            # Save the solution to the database
+            question.solution = solution
+            question.save()
+            
+            return JsonResponse({
+                'success': True,
+                'solution': solution
+            })
+        else:
+            return JsonResponse({
+                'error': 'Failed to generate solution. Please check your API configuration.'
+            }, status=500)
+        
+    except Exception as e:
+        error_type = type(e).__name__
+        error_message = str(e)
+        
+        return JsonResponse({
+            'error': f'Error generating solution: {error_message}',
+            'error_type': error_type
+        }, status=500)
+
 
 @login_required
 def select_quiz_mode(request, subject_id, unit):
@@ -625,3 +726,208 @@ def get_openai_solution(prompt):
         temperature=0.5
     )
     return response.choices[0].message.content
+
+
+@login_required
+@require_http_methods(["POST"])
+def execute_python_code(request, question_id):
+    """Execute Python code safely and return output"""
+    question = get_object_or_404(ProgrammingQuestion, id=question_id)
+    
+    try:
+        data = json.loads(request.body)
+        code = data.get('code', '').strip()
+        
+        if not code:
+            return JsonResponse({
+                'success': False,
+                'error': 'No code provided'
+            }, status=400)
+        
+        # Security: Limit code length
+        if len(code) > 10000:
+            return JsonResponse({
+                'success': False,
+                'error': 'Code is too long (max 10,000 characters)'
+            }, status=400)
+        
+        # Create a temporary file for the code
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+            f.write(code)
+            temp_file = f.name
+        
+        try:
+            # Execute Python code with timeout (10 seconds)
+            result = subprocess.run(
+                [sys.executable, temp_file],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=tempfile.gettempdir()
+            )
+            
+            output = result.stdout
+            error = result.stderr
+            
+            # Clean up temp file
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+            
+            if result.returncode == 0:
+                return JsonResponse({
+                    'success': True,
+                    'output': output if output else '(No output)',
+                    'error': None
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'output': output if output else '',
+                    'error': error if error else 'Code execution failed'
+                })
+                
+        except subprocess.TimeoutExpired:
+            # Clean up temp file
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+            return JsonResponse({
+                'success': False,
+                'error': 'Code execution timed out (max 10 seconds)'
+            }, status=408)
+            
+        except Exception as e:
+            # Clean up temp file
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+            return JsonResponse({
+                'success': False,
+                'error': f'Execution error: {str(e)}'
+            }, status=500)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def evaluate_code(request, question_id):
+    """Evaluate code correctness using AI"""
+    question = get_object_or_404(ProgrammingQuestion, id=question_id)
+    
+    try:
+        data = json.loads(request.body)
+        user_code = data.get('code', '').strip()
+        execution_output = data.get('output', '')
+        
+        if not user_code:
+            return JsonResponse({
+                'success': False,
+                'error': 'No code provided'
+            }, status=400)
+        
+        # Get AI provider from settings
+        ai_provider = getattr(settings, 'AI_PROVIDER', 'groq').lower()
+        
+        # Build evaluation prompt
+        prompt = f"""Evaluate this Python code solution for correctness.
+
+Question: {question.question_text}
+
+User's Code:
+```python
+{user_code}
+```
+
+Execution Output:
+{execution_output if execution_output else '(No output or code not executed)'}
+
+Please evaluate:
+1. Does the code solve the problem correctly?
+2. Is the logic sound?
+3. Are there any errors or issues?
+4. Rate the solution out of 10 points
+
+Provide your evaluation in this format:
+SCORE: X/10
+FEEDBACK: [Your detailed feedback]
+
+Be constructive and educational. If the code is correct, praise it. If incorrect, explain what's wrong and suggest improvements."""
+        
+        try:
+            evaluation = None
+            
+            # Route to appropriate AI provider
+            if ai_provider == 'groq':
+                evaluation = get_groq_solution(prompt)
+            elif ai_provider == 'huggingface':
+                evaluation = get_huggingface_solution(prompt)
+            elif ai_provider == 'gemini':
+                evaluation = get_gemini_solution(prompt)
+            elif ai_provider == 'ollama':
+                evaluation = get_ollama_solution(prompt)
+            elif ai_provider == 'openai':
+                evaluation = get_openai_solution(prompt)
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Unknown AI provider: {ai_provider}'
+                }, status=500)
+            
+            # Parse score and feedback
+            score = None
+            feedback = evaluation
+            
+            # Try to extract score from response
+            if 'SCORE:' in evaluation:
+                lines = evaluation.split('\n')
+                for line in lines:
+                    if 'SCORE:' in line:
+                        try:
+                            score_part = line.split('SCORE:')[1].strip()
+                            score_num = score_part.split('/')[0].strip()
+                            score = int(score_num)
+                            break
+                        except:
+                            pass
+            
+            # Extract feedback
+            if 'FEEDBACK:' in evaluation:
+                feedback = evaluation.split('FEEDBACK:')[1].strip()
+            
+            return JsonResponse({
+                'success': True,
+                'score': score,
+                'feedback': feedback,
+                'full_evaluation': evaluation
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': f'Error evaluating code: {str(e)}'
+            }, status=500)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Error: {str(e)}'
+        }, status=500)

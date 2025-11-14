@@ -10,8 +10,12 @@ urlpatterns = [
     path('subject/<int:subject_id>/units/', views.select_unit, name='select_unit'),
     path('subject/<int:subject_id>/unit/<int:unit>/mode/', views.select_quiz_mode, name='select_mode'),
     path('subject/<int:subject_id>/unit/<int:unit>/quiz/', views.take_quiz, name='take_quiz'),
+    path('subject/<int:subject_id>/unit/<int:unit>/programming/', views.view_programming_questions, name='view_programming_questions'),
     path('submit/', views.submit_quiz, name='submit_quiz'),
     path('question/<int:question_id>/solution/', views.get_question_solution, name='get_question_solution'),
+    path('programming-question/<int:question_id>/solution/', views.get_programming_solution, name='get_programming_solution'),
+    path('programming-question/<int:question_id>/execute/', views.execute_python_code, name='execute_python_code'),
+    path('programming-question/<int:question_id>/evaluate/', views.evaluate_code, name='evaluate_code'),
     path('about/', views.about_us, name='about_us'),
 ]
 

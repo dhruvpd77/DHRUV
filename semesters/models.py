@@ -75,3 +75,29 @@ class Question(models.Model):
     
     class Meta:
         ordering = ['subject', 'unit', 'created_at']
+
+
+class ProgrammingQuestion(models.Model):
+    """Programming questions (non-MCQ questions without all 4 options)"""
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='programming_questions')
+    unit = models.IntegerField()
+    question_text = models.TextField(help_text="Programming question with proper Python indentation")
+    question_image = models.ImageField(upload_to='question_images/', blank=True, null=True)
+    solution = models.TextField(blank=True, null=True, help_text="Solution(s) for the question. Separate multiple solutions with '|||OPTION|||' (max 3 options)")
+    added_by = models.CharField(max_length=100, blank=True)
+    verified_by = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def get_solutions_list(self):
+        """Parse solution field to return list of solutions (max 3)"""
+        if not self.solution:
+            return []
+        # Split by |||OPTION||| delimiter
+        solutions = [s.strip() for s in self.solution.split('|||OPTION|||') if s.strip()]
+        return solutions[:3]  # Return max 3 solutions
+    
+    def __str__(self):
+        return f"{self.subject.name} - Unit {self.unit} - {self.question_text[:50]}"
+    
+    class Meta:
+        ordering = ['subject', 'unit', 'created_at']
