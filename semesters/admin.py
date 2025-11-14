@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Semester, Subject, Question
+from .models import Semester, Subject, Question, Unit
 
 @admin.register(Semester)
 class SemesterAdmin(admin.ModelAdmin):
@@ -11,6 +11,13 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = ['name', 'code', 'semester', 'created_at']
     list_filter = ['semester']
     search_fields = ['name', 'code']
+
+@admin.register(Unit)
+class UnitAdmin(admin.ModelAdmin):
+    list_display = ['subject', 'unit_number', 'title', 'created_at']
+    list_filter = ['subject', 'unit_number']
+    search_fields = ['title', 'description', 'topics']
+    ordering = ['subject', 'unit_number']
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):

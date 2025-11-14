@@ -12,6 +12,9 @@
             Back to Dashboard
         </a>
         <div class="flex gap-3">
+            <a href="{% url 'semesters:manage_units' subject.id %}" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold">
+                📚 Manage Units
+            </a>
             <a href="{% url 'semesters:add_question' subject.id %}" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition duration-300 font-semibold">
                 + Add New Question
             </a>

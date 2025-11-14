@@ -48,11 +48,31 @@ def about_us(request):
 @login_required
 def select_unit(request, subject_id):
     subject = get_object_or_404(Subject, id=subject_id)
-    # Get distinct units for this subject
-    units = Question.objects.filter(subject=subject).values_list('unit', flat=True).distinct().order_by('unit')
+    # Get distinct units for this subject from questions
+    question_units = Question.objects.filter(subject=subject).values_list('unit', flat=True).distinct().order_by('unit')
+    
+    # Get unit information (descriptions, topics) from Unit model
+    from semesters.models import Unit
+    unit_info = {}
+    for unit_num in question_units:
+        try:
+            unit_obj = Unit.objects.get(subject=subject, unit_number=unit_num)
+            unit_info[unit_num] = {
+                'title': unit_obj.title,
+                'description': unit_obj.description,
+                'topics': unit_obj.get_topics_list(),
+            }
+        except Unit.DoesNotExist:
+            unit_info[unit_num] = {
+                'title': '',
+                'description': '',
+                'topics': [],
+            }
+    
     return render(request, 'quiz/select_unit.html', {
         'subject': subject,
-        'units': units
+        'units': question_units,
+        'unit_info': unit_info,
     })
 
 @login_required
@@ -91,6 +111,16 @@ def select_quiz_mode(request, subject_id, unit):
 def take_quiz(request, subject_id, unit):
     subject = get_object_or_404(Subject, id=subject_id)
     quiz_mode = request.GET.get('mode', 'random')  # Get mode from URL parameter
+    
+    # Check if user is trying to continue a quiz that was already submitted
+    continue_quiz = request.GET.get('continue', 'false') == 'true'
+    if continue_quiz:
+        # If trying to continue but session doesn't exist, quiz was already submitted
+        session_key = f'random_quiz_{subject_id}_{unit}'
+        if session_key not in request.session or 'quiz_questions' not in request.session:
+            messages.info(request, 'This quiz has already been completed. Starting a new quiz.')
+            # Remove continue parameter and start fresh
+            return redirect('quiz:select_mode', subject_id=subject_id, unit=unit)
     
     # Get all questions from the unit
     all_questions = list(Question.objects.filter(subject=subject, unit=unit))
@@ -133,25 +163,48 @@ def take_quiz(request, subject_id, unit):
         session_key = f'random_quiz_{subject_id}_{unit}'
         continue_quiz = request.GET.get('continue', 'false') == 'true'
         
-        if continue_quiz and session_key in request.session:
+        # IMPORTANT: Check if quiz session already exists (for page refresh)
+        # If session exists, automatically continue the quiz to preserve timer
+        has_existing_session = session_key in request.session and 'quiz_questions' in request.session
+        
+        if (continue_quiz or has_existing_session) and session_key in request.session:
             # Continue existing quiz - use stored questions
             stored_question_ids = request.session.get('quiz_questions', [])
-            quiz_questions = [q for q in all_questions if q.id in stored_question_ids]
-            # Preserve order
-            quiz_questions = sorted(quiz_questions, key=lambda q: stored_question_ids.index(q.id))
+            
+            # Verify stored questions still exist
+            if stored_question_ids:
+                quiz_questions = [q for q in all_questions if q.id in stored_question_ids]
+                # Preserve order
+                quiz_questions = sorted(quiz_questions, key=lambda q: stored_question_ids.index(q.id))
+                
+                # If we lost some questions, fill with new ones (shouldn't happen, but safety check)
+                if len(quiz_questions) < len(stored_question_ids):
+                    missing_count = len(stored_question_ids) - len(quiz_questions)
+                    available_new = [q for q in all_questions if q.id not in stored_question_ids]
+                    if available_new:
+                        quiz_questions.extend(random.sample(available_new, min(missing_count, len(available_new))))
+            else:
+                # Session exists but no questions stored, start new quiz
+                has_existing_session = False
             
             # Calculate remaining time
-            quiz_data = request.session[session_key]
-            start_time = quiz_data.get('start_time')
-            if start_time:
-                elapsed_time = time.time() - start_time
-                remaining_time = 600 - elapsed_time
-                if remaining_time <= 0:
-                    # Time expired, start new quiz
-                    messages.warning(request, 'Time expired. Starting a new quiz.')
-                    continue_quiz = False
-        else:
-            # Start new quiz
+            if has_existing_session:
+                quiz_data = request.session[session_key]
+                start_time = quiz_data.get('start_time')
+                if start_time:
+                    elapsed_time = time.time() - start_time
+                    remaining_time = 600 - elapsed_time
+                    if remaining_time <= 0:
+                        # Time expired, start new quiz
+                        messages.warning(request, 'Time expired. Starting a new quiz.')
+                        has_existing_session = False
+                        # Clear expired session
+                        del request.session[session_key]
+                        if 'quiz_questions' in request.session:
+                            del request.session['quiz_questions']
+        
+        # Start new quiz if no existing session or session expired
+        if not has_existing_session:
             if len(all_questions) < 10:
                 messages.warning(request, f'Only {len(all_questions)} questions available for this unit.')
                 quiz_questions = all_questions

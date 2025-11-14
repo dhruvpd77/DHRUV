@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.files.base import ContentFile
-from .models import Semester, Subject, Question
+from .models import Semester, Subject, Question, Unit
 import pandas as pd
 import openpyxl
 from io import BytesIO
@@ -646,3 +646,60 @@ def delete_all_questions(request, subject_id):
         'unit_distribution': unit_distribution,
     }
     return render(request, 'semesters/delete_all_questions.html', context)
+
+
+@staff_member_required
+def manage_units(request, subject_id):
+    """Manage units for a subject"""
+    subject = get_object_or_404(Subject, id=subject_id)
+    units = Unit.objects.filter(subject=subject).order_by('unit_number')
+    
+    # Get distinct units from questions
+    question_units = Question.objects.filter(subject=subject).values_list('unit', flat=True).distinct().order_by('unit')
+    
+    # Get existing unit numbers
+    existing_unit_numbers = set(units.values_list('unit_number', flat=True))
+    
+    return render(request, 'semesters/manage_units.html', {
+        'subject': subject,
+        'units': units,
+        'question_units': question_units,
+        'existing_unit_numbers': existing_unit_numbers,
+    })
+
+
+@staff_member_required
+def create_unit(request, subject_id, unit_number):
+    """Create unit information"""
+    subject = get_object_or_404(Subject, id=subject_id)
+    unit, created = Unit.objects.get_or_create(
+        subject=subject,
+        unit_number=unit_number,
+        defaults={'title': '', 'topics': ''}
+    )
+    if created:
+        messages.info(request, f'Created new Unit {unit_number}. Please add title and topics.')
+    
+    if request.method == 'POST':
+        unit.title = request.POST.get('title', '')
+        unit.topics = request.POST.get('topics', '')
+        unit.save()
+        messages.success(request, f'Unit {unit.unit_number} saved successfully!')
+        return redirect('semesters:manage_units', subject_id=unit.subject.id)
+    
+    return render(request, 'semesters/edit_unit.html', {'unit': unit})
+
+
+@staff_member_required
+def edit_unit(request, unit_id):
+    """Edit unit information"""
+    unit = get_object_or_404(Unit, id=unit_id)
+    
+    if request.method == 'POST':
+        unit.title = request.POST.get('title', '')
+        unit.topics = request.POST.get('topics', '')
+        unit.save()
+        messages.success(request, f'Unit {unit.unit_number} saved successfully!')
+        return redirect('semesters:manage_units', subject_id=unit.subject.id)
+    
+    return render(request, 'semesters/edit_unit.html', {'unit': unit})

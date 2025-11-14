@@ -1,53 +1,209 @@
 {% extends 'base.html' %}
+{% load quiz_extras %}
 
 {% block title %}Select Unit - QuizNjoy{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto">
-    <div class="mb-8">
-        <a href="{% url 'quiz:select_subject' subject.semester.id %}" class="inline-flex items-center text-blue-600 hover:text-blue-800 font-semibold">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div class="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
+    <!-- Back Button -->
+    <div class="mb-4 sm:mb-6">
+        <a href="{% url 'quiz:select_subject' subject.semester.id %}" class="inline-flex items-center text-indigo-600 hover:text-indigo-800 font-medium transition duration-200 text-sm sm:text-base">
+            <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
-            Back to Subjects
+            <span class="sm:inline">Back to Subjects</span>
+            <span class="sm:hidden">Back</span>
         </a>
     </div>
     
-    <div class="text-center mb-6 md:mb-12">
-        <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2">{{ subject.name }}</h1>
-        <p class="text-base md:text-lg text-gray-600">Select a unit to start the quiz</p>
+    <!-- Header -->
+    <div class="text-center mb-6 sm:mb-8 md:mb-10">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-2 sm:mb-3 px-2">{{ subject.name }}</h1>
+        <p class="text-sm sm:text-base md:text-lg text-gray-600 px-2">Select a unit to start the quiz</p>
     </div>
     
     {% if units %}
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
             {% for unit in units %}
-                <a href="{% url 'quiz:select_mode' subject.id unit %}" class="group block">
-                    <div class="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 md:hover:scale-110 md:hover:rotate-3 p-4 md:p-8 text-center text-white h-full">
-                        <div class="bg-white bg-opacity-30 backdrop-blur-sm w-16 h-16 md:w-24 md:h-24 rounded-full flex items-center justify-center text-2xl md:text-4xl font-bold mx-auto mb-2 md:mb-4 group-hover:bg-opacity-40 transition-all duration-300 shadow-xl">
-                            {{ unit }}
-                        </div>
-                        <h3 class="text-sm md:text-lg font-bold mb-2">
-                            Unit {{ unit }}
-                        </h3>
-                        <div class="flex items-center justify-center font-semibold text-xs md:text-sm">
-                            <span>Take Quiz</span>
-                            <svg class="w-3 h-3 md:w-4 md:h-4 ml-2 group-hover:translate-x-2 transition duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {% with unit_data=unit_info|get_item:unit %}
+                <div class="group relative bg-white rounded-xl sm:rounded-2xl shadow-md hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 active:scale-[0.98] sm:active:scale-100">
+                    <a href="{% url 'quiz:select_mode' subject.id unit %}" class="block p-4 sm:p-5 md:p-6">
+                        <!-- Unit Number Badge -->
+                        <div class="flex items-start justify-between mb-3 sm:mb-4">
+                            <div class="flex items-center gap-2 sm:gap-3">
+                                <div class="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white w-12 h-12 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl flex items-center justify-center text-xl sm:text-2xl font-bold shadow-lg group-hover:scale-110 transition-transform duration-300 flex-shrink-0">
+                                    {{ unit }}
+                                </div>
+                                <div class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide">Unit</div>
+                            </div>
+                            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all duration-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                             </svg>
                         </div>
-                    </div>
-                </a>
+                        
+                        <!-- Unit Title -->
+                        <h3 class="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-indigo-600 transition-colors duration-200 leading-tight">
+                            {% if unit_data.title %}
+                                {{ unit_data.title }}
+                            {% else %}
+                                Unit {{ unit }}
+                            {% endif %}
+                        </h3>
+                        
+                        <!-- Topics Section -->
+                        {% if unit_data.topics %}
+                        <div class="mb-3 sm:mb-4">
+                            <p class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 sm:mb-2">Topics Covered</p>
+                            <div class="space-y-1.5 sm:space-y-2">
+                                <!-- Visible Topics (first 3) -->
+                                <div id="topics-visible-{{ unit }}" class="flex flex-wrap gap-1.5 sm:gap-2">
+                                    {% for topic in unit_data.topics|slice:":3" %}
+                                    <span class="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 break-words">
+                                        {{ topic|truncatewords:4 }}
+                                    </span>
+                                    {% endfor %}
+                                    {% if unit_data.topics|length > 3 %}
+                                    <button 
+                                        type="button"
+                                        onclick="toggleTopics({{ unit }})"
+                                        class="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-700 active:bg-gray-200 sm:hover:bg-gray-200 border border-gray-300 transition-colors duration-200 cursor-pointer touch-manipulation min-h-[28px] sm:min-h-[32px]"
+                                        id="toggle-btn-{{ unit }}">
+                                        +{{ unit_data.topics|length|add:"-3" }} more
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Hidden Topics (expandable) -->
+                                {% if unit_data.topics|length > 3 %}
+                                <div id="topics-hidden-{{ unit }}" class="hidden flex flex-wrap gap-1.5 sm:gap-2">
+                                    {% for topic in unit_data.topics|slice:"3:" %}
+                                    <span class="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 break-words">
+                                        {{ topic|truncatewords:4 }}
+                                    </span>
+                                    {% endfor %}
+                                    <button 
+                                        type="button"
+                                        onclick="toggleTopics({{ unit }})"
+                                        class="inline-flex items-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-700 active:bg-gray-200 sm:hover:bg-gray-200 border border-gray-300 transition-colors duration-200 cursor-pointer touch-manipulation min-h-[28px] sm:min-h-[32px]"
+                                        id="toggle-btn-hide-{{ unit }}">
+                                        Show less
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="mb-3 sm:mb-4">
+                            <p class="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 sm:mb-2">Topics Covered</p>
+                            <p class="text-xs sm:text-sm text-gray-400 italic">No topics added yet</p>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Take Quiz Button -->
+                        <div class="mt-4 sm:mt-5 md:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
+                            <div class="flex items-center justify-between text-xs sm:text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">
+                                <span>Take Quiz</span>
+                                <svg class="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endwith %}
             {% endfor %}
         </div>
     {% else %}
-        <div class="bg-white rounded-lg shadow-xl p-12 text-center">
-            <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-xl p-8 sm:p-10 md:p-12 text-center border border-gray-100 mx-2 sm:mx-0">
+            <svg class="mx-auto h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 text-gray-400 mb-3 sm:mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
-            <h3 class="mt-4 text-lg font-medium text-gray-900">No units available</h3>
-            <p class="mt-2 text-sm text-gray-500">No questions have been added for this subject yet.</p>
+            <h3 class="mt-3 sm:mt-4 text-lg sm:text-xl font-semibold text-gray-900">No units available</h3>
+            <p class="mt-2 text-xs sm:text-sm text-gray-500 px-4">No questions have been added for this subject yet.</p>
         </div>
     {% endif %}
 </div>
-{% endblock %}
 
+<script>
+function toggleTopics(unitId) {
+    const visibleDiv = document.getElementById('topics-visible-' + unitId);
+    const hiddenDiv = document.getElementById('topics-hidden-' + unitId);
+    const toggleBtn = document.getElementById('toggle-btn-' + unitId);
+    const toggleBtnHide = document.getElementById('toggle-btn-hide-' + unitId);
+    
+    if (hiddenDiv && visibleDiv) {
+        if (hiddenDiv.classList.contains('hidden')) {
+            hiddenDiv.classList.remove('hidden');
+            if (toggleBtn) toggleBtn.style.display = 'none';
+        } else {
+            hiddenDiv.classList.add('hidden');
+            if (toggleBtn) toggleBtn.style.display = 'inline-flex';
+        }
+    }
+}
+
+// Prevent link navigation when clicking on toggle button
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleButtons = document.querySelectorAll('[onclick^="toggleTopics"]');
+    toggleButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    });
+});
+</script>
+
+<style>
+/* Smooth animations */
+.group:hover .group-hover\:scale-110 {
+    transform: scale(1.1);
+}
+
+/* Prevent text selection on buttons */
+button {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+/* Touch optimization for mobile */
+.touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Better touch targets on mobile */
+@media (max-width: 640px) {
+    a, button {
+        min-height: 44px; /* iOS recommended touch target */
+    }
+    
+    /* Prevent card scaling on mobile tap */
+    .group.active\:scale-\[0\.98\] {
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Better text rendering on mobile */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Responsive topic tags */
+@media (max-width: 640px) {
+    .break-words {
+        word-break: break-word;
+        overflow-wrap: break-word;
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}

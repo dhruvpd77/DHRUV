@@ -177,6 +177,22 @@
 </div>
 
 <script>
+// Prevent going back to quiz questions page after completing quiz
+(function() {
+    // Push a new state to history so we can intercept back button
+    if (window.history && window.history.pushState) {
+        // Push current page to history
+        window.history.pushState({page: 'quiz_results'}, '', window.location.href);
+        
+        // Intercept back button and redirect to safe page
+        window.addEventListener('popstate', function(event) {
+            // If user tries to go back, immediately redirect to select semester page
+            // This prevents going back to the quiz questions page
+            window.location.replace("{% url 'quiz:select_semester' %}");
+        });
+    }
+})();
+
 // Store solution cache to avoid multiple API calls
 const solutionCache = {};
 

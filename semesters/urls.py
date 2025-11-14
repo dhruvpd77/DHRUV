@@ -20,5 +20,8 @@ urlpatterns = [
     path('admin/delete-question/<int:question_id>/', views.delete_question, name='delete_question'),
     path('admin/delete-unit-questions/<int:subject_id>/<int:unit>/', views.delete_unit_questions, name='delete_unit_questions'),
     path('admin/delete-all-questions/<int:subject_id>/', views.delete_all_questions, name='delete_all_questions'),
+    path('admin/manage-units/<int:subject_id>/', views.manage_units, name='manage_units'),
+    path('admin/edit-unit/<int:unit_id>/', views.edit_unit, name='edit_unit'),
+    path('admin/create-unit/<int:subject_id>/<int:unit_number>/', views.create_unit, name='create_unit'),
 ]
 

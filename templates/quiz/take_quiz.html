@@ -117,13 +117,17 @@
 {% if quiz_mode == 'random' %}
 <script>
     // Timer functionality for random mode only
-    let timeRemaining = {% if remaining_time %}{{ remaining_time }}{% else %}600{% endif %}; // Use remaining time if continuing, otherwise 10 minutes
-    let timeElapsed = {% if remaining_time %}600 - {{ remaining_time }}{% else %}0{% endif %}; // Calculate elapsed time if continuing
+    // Get initial remaining time from server (calculated from session start_time)
+    const serverRemainingTime = {% if remaining_time %}{{ remaining_time }}{% else %}600{% endif %};
+    let timeRemaining = serverRemainingTime;
+    let timeElapsed = 600 - serverRemainingTime; // Calculate elapsed time
     const timerElement = document.getElementById('timer');
     const timerContainer = document.getElementById('timer-container');
     const quizForm = document.getElementById('quiz-form');
     const timeTakenInput = document.getElementById('time_taken');
     let timerInterval;
+    let pageLoadTime = Date.now(); // Track when page loaded
+    let lastUpdateTime = Date.now(); // Track last timer update
 
     // Initialize timer display
     function formatTime(seconds) {
@@ -136,13 +140,21 @@
     let isSubmitting = false; // Flag to prevent multiple submissions
     
     function updateTimer() {
+        // Calculate actual elapsed time based on real time passed
+        const now = Date.now();
+        const realTimePassed = Math.floor((now - pageLoadTime) / 1000);
+        
+        // Update time remaining based on server time minus real time passed
+        timeRemaining = Math.max(0, serverRemainingTime - realTimePassed);
+        timeElapsed = 600 - timeRemaining;
+        
         if (timeRemaining <= 0) {
             if (isSubmitting) return; // Prevent multiple submissions
             isSubmitting = true;
             
             clearInterval(timerInterval);
             timerElement.textContent = '00:00';
-            timeTakenInput.value = timeElapsed;
+            timeTakenInput.value = 600; // Full 10 minutes elapsed
             
             // Show message
             timerContainer.style.backgroundColor = '#991b1b';
@@ -165,11 +177,7 @@
             // Small delay to ensure form data is ready, then submit
             setTimeout(function() {
                 // Ensure time_taken is set
-                timeTakenInput.value = timeElapsed;
-                
-                // Verify form data is ready (debug - can remove later)
-                const formData = new FormData(quizForm);
-                console.log('Form data before submit:', Array.from(formData.entries()));
+                timeTakenInput.value = 600;
                 
                 // Submit the form - this will include all selected radio buttons
                 quizForm.submit();
@@ -194,18 +202,42 @@
             timerElement.classList.remove('animate-pulse');
         }
         
-        timeElapsed++;
         timeTakenInput.value = timeElapsed;
-        timeRemaining--;
+        lastUpdateTime = now;
     }
+
+    // Handle page visibility changes (when user switches tabs)
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // Page became visible - recalculate time based on real elapsed time
+            const now = Date.now();
+            const timePassedWhileHidden = Math.floor((now - lastUpdateTime) / 1000);
+            timeRemaining = Math.max(0, timeRemaining - timePassedWhileHidden);
+            timeElapsed = 600 - timeRemaining;
+            lastUpdateTime = now;
+        }
+    });
 
     // Start the timer when page loads
     timerInterval = setInterval(updateTimer, 1000);
     
     // Update time taken when form is manually submitted
-    quizForm.addEventListener('submit', function() {
+    quizForm.addEventListener('submit', function(e) {
         clearInterval(timerInterval);
+        // Calculate final time based on real elapsed time
+        const finalElapsed = Math.floor((Date.now() - pageLoadTime) / 1000);
+        timeElapsed = Math.min(600, timeElapsed + finalElapsed);
         timeTakenInput.value = timeElapsed;
+    });
+    
+    // Prevent page refresh warning (optional - can be removed if you want to warn users)
+    window.addEventListener('beforeunload', function(e) {
+        if (!isSubmitting && timeRemaining > 0) {
+            // Optional: Show warning when leaving page
+            // Uncomment the next two lines if you want to warn users
+            // e.preventDefault();
+            // e.returnValue = 'Your quiz timer is still running. Are you sure you want to leave?';
+        }
     });
 </script>
 {% endif %}
