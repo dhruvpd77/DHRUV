@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Disclaimer - QuizNjoy{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-3 py-3">
+    <div class="bg-white rounded-lg shadow-md p-3 md:p-4 border-l-3 border-yellow-500">
+        <!-- Compact Header -->
+        <div class="text-center mb-3">
+            <div class="inline-flex items-center justify-center w-10 h-10 md:w-12 md:h-12 bg-yellow-100 rounded-full mb-1">
+                <svg class="w-5 h-5 md:w-6 md:h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+            <h1 class="text-lg md:text-xl font-bold text-gray-800">Disclaimer</h1>
+        </div>
+
+        <!-- Ultra Compact Content -->
+        <div class="space-y-2 mb-3">
+            <div class="bg-yellow-50 border-l-2 border-yellow-400 p-2 rounded">
+                <p class="text-xs md:text-sm text-gray-700 leading-tight">
+                    <strong class="text-yellow-800">Practice Only:</strong> For educational purposes. No 100% accuracy guarantee.
+                </p>
+            </div>
+            <div class="bg-blue-50 border-l-2 border-blue-400 p-2 rounded">
+                <p class="text-xs md:text-sm text-gray-700 leading-tight">
+                    <strong class="text-blue-800">Verify Answers:</strong> Some answers may be incorrect. Always verify from authoritative sources.
+                </p>
+            </div>
+            <div class="bg-green-50 border-l-2 border-green-400 p-2 rounded">
+                <p class="text-xs md:text-sm text-gray-700 leading-tight">
+                    <strong class="text-green-800">Educational Purpose:</strong> Use as supplement to studies, not replacement for formal education.
+                </p>
+            </div>
+        </div>
+
+        <!-- Subject Info - Compact -->
+        <div class="bg-gray-50 rounded p-2 mb-3 text-center">
+            <p class="text-xs text-gray-600 mb-0.5">Practicing: <span class="font-bold text-gray-800">{{ subject.name }}</span></p>
+            {% if subject.code %}
+                <p class="text-xs text-gray-500">{{ subject.code }}</p>
+            {% endif %}
+        </div>
+
+        <!-- Compact Buttons -->
+        <div class="flex gap-2">
+            <a href="{% url 'quiz:select_semester' %}" class="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs md:text-sm font-semibold rounded transition text-center">
+                ← Back
+            </a>
+            <a href="{% url 'quiz:select_unit' subject.id %}" class="flex-1 px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-xs md:text-sm font-semibold rounded shadow hover:shadow-md transition text-center">
+                Continue →
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

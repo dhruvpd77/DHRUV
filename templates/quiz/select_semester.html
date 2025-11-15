@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block title %}Select Semester - QuizNjoy{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="text-center mb-6 md:mb-12">
+        <h1 class="text-2xl md:text-4xl font-bold text-gray-800 mb-2 md:mb-4">Select Your Semester</h1>
+        <p class="text-base md:text-lg text-gray-600">Choose a semester to begin your quiz</p>
+    </div>
+    
+    {% if semesters %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for semester in semesters %}
+                <a href="{% url 'quiz:select_subject' semester.id %}" class="group">
+                    <div class="bg-white rounded-lg shadow-lg hover:shadow-2xl transition duration-300 transform hover:-translate-y-2 p-8 border-t-4 border-blue-600">
+                        <div class="flex items-center mb-4">
+                            <div class="bg-gradient-to-r from-blue-600 to-blue-800 text-white w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mr-4">
+                                {{ forloop.counter }}
+                            </div>
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800 group-hover:text-blue-600 transition duration-300">
+                                    {{ semester.name }}
+                                </h3>
+                            </div>
+                        </div>
+                        {% if semester.description %}
+                            <p class="text-gray-600 mt-4">{{ semester.description }}</p>
+                        {% endif %}
+                        <div class="mt-6 flex items-center text-blue-600 font-semibold">
+                            <span>View Subjects</span>
+                            <svg class="w-5 h-5 ml-2 group-hover:translate-x-2 transition duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="bg-white rounded-lg shadow-xl p-12 text-center">
+            <svg class="mx-auto h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            <h3 class="mt-4 text-lg font-medium text-gray-900">No semesters available</h3>
+            <p class="mt-2 text-sm text-gray-500">Please contact the administrator to add semesters.</p>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
