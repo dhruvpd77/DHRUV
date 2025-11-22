@@ -844,12 +844,126 @@ def add_programming_question(request, subject_id):
 
 @staff_member_required
 def add_multiple_programming_questions(request, subject_id):
-    """Add multiple programming questions manually (bulk entry)"""
+    """Add multiple programming questions manually (bulk entry) or via Excel"""
     subject = get_object_or_404(Subject, id=subject_id)
     
     if request.method == 'POST':
+        submit_type = request.POST.get('submit_type', 'manual')
+        
+        # Handle Excel upload
+        if submit_type == 'excel':
+            excel_file = request.FILES.get('excel_file')
+            added_by = request.POST.get('added_by', '')
+            verified_by = request.POST.get('verified_by', '')
+            
+            if not excel_file:
+                messages.error(request, 'Please select an Excel file.')
+                return render(request, 'semesters/add_multiple_programming_questions.html', {'subject': subject})
+            
+            try:
+                # Save uploaded file temporarily
+                file_path = f'/tmp/{excel_file.name}' if os.name != 'nt' else f'C:\\temp\\{excel_file.name}'
+                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                
+                with open(file_path, 'wb+') as destination:
+                    for chunk in excel_file.chunks():
+                        destination.write(chunk)
+                
+                # Read Excel file
+                try:
+                    df = pd.read_excel(file_path, dtype=str, keep_default_na=False)
+                except Exception as e:
+                    messages.error(request, f'Error reading Excel file: {str(e)}')
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
+                    return render(request, 'semesters/add_multiple_programming_questions.html', {'subject': subject})
+                
+                # Verify required columns
+                def get_column_name(df, possible_names):
+                    """Find column name with case-insensitive matching"""
+                    for col in df.columns:
+                        if str(col).strip().lower() in [name.lower() for name in possible_names]:
+                            return col
+                    return None
+                
+                unit_col = get_column_name(df, ['unit_number', 'unit number', 'unit'])
+                question_col = get_column_name(df, ['questions', 'question', 'question_text', 'question text'])
+                
+                if not unit_col or not question_col:
+                    messages.error(request, 'Excel file must have columns: unit_number and questions')
+                    try:
+                        os.remove(file_path)
+                    except:
+                        pass
+                    return render(request, 'semesters/add_multiple_programming_questions.html', {'subject': subject})
+                
+                created_count = 0
+                skipped_count = 0
+                
+                for index, row in df.iterrows():
+                    try:
+                        # Get unit number
+                        unit_str = str(row[unit_col]).strip()
+                        if not unit_str or unit_str.lower() in ['nan', 'none', '']:
+                            skipped_count += 1
+                            continue
+                        
+                        try:
+                            unit = int(float(unit_str))
+                        except:
+                            skipped_count += 1
+                            continue
+                        
+                        # Get question text
+                        question_text = str(row[question_col]).strip()
+                        if not question_text or question_text.lower() in ['nan', 'none', '']:
+                            skipped_count += 1
+                            continue
+                        
+                        # Create programming question (without solution)
+                        ProgrammingQuestion.objects.create(
+                            subject=subject,
+                            unit=unit,
+                            question_text=question_text,
+                            solution='',  # No solution for Excel upload
+                            added_by=added_by,
+                            verified_by=verified_by
+                        )
+                        created_count += 1
+                    except Exception as e:
+                        skipped_count += 1
+                        continue
+                
+                # Clean up temp file
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+                
+                if created_count > 0:
+                    messages.success(request, f'Successfully added {created_count} programming question(s) from Excel!')
+                    if skipped_count > 0:
+                        messages.warning(request, f'Skipped {skipped_count} invalid row(s).')
+                else:
+                    messages.error(request, 'No valid questions were added from Excel. Please check the format.')
+                
+                return redirect('semesters:manage_programming_questions', subject_id=subject.id)
+                
+            except Exception as e:
+                messages.error(request, f'Error processing Excel file: {str(e)}')
+                try:
+                    if 'file_path' in locals():
+                        os.remove(file_path)
+                except:
+                    pass
+                return render(request, 'semesters/add_multiple_programming_questions.html', {'subject': subject})
+        
+        # Handle manual entry
         unit = request.POST.get('unit', 1)
         questions_data = request.POST.get('questions_data', '')
+        questions_only = request.POST.get('questions_only', '0') == '1'
         added_by = request.POST.get('added_by', '')
         verified_by = request.POST.get('verified_by', '')
         
@@ -873,7 +987,7 @@ def add_multiple_programming_questions(request, subject_id):
                                 subject=subject,
                                 unit=unit,
                                 question_text=current_question.strip(),
-                                solution=current_solution.strip() if current_solution else '',
+                                solution='' if questions_only else (current_solution.strip() if current_solution else ''),
                                 added_by=added_by,
                                 verified_by=verified_by
                             )
@@ -884,8 +998,8 @@ def add_multiple_programming_questions(request, subject_id):
                     # Start new question
                     current_question = line.split(':', 1)[1].strip() if ':' in line else line[2:].strip()
                     current_solution = None
-                # Check if line starts with "S:" or "Solution:" to indicate solution
-                elif line.lower().startswith('s:') or line.lower().startswith('solution:'):
+                # Check if line starts with "S:" or "Solution:" to indicate solution (skip if questions_only)
+                elif (line.lower().startswith('s:') or line.lower().startswith('solution:')) and not questions_only:
                     current_solution = line.split(':', 1)[1].strip() if ':' in line else line[2:].strip()
                 else:
                     # Append to current question or solution
